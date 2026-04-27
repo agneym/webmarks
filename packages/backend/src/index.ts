@@ -1,9 +1,16 @@
 import { Hono } from "hono";
+import { createDrizzle, schema } from "./db";
 
-const app = new Hono();
+type Bindings = {
+  DB: D1Database;
+};
 
-app.get("/", (c) => {
-  return c.text("Hello Hono!");
+const app = new Hono<{ Bindings: Bindings }>();
+
+app.get("/", async (c) => {
+  const db = createDrizzle(c.env.DB);
+  const users = await db.select().from(schema.users);
+  return c.json({ users });
 });
 
 export default app;

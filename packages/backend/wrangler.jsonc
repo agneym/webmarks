@@ -21,13 +21,13 @@
   //     "bucket_name": "my-bucket"
   //   }
   // ],
-  // "d1_databases": [
-  //   {
-  //     "binding": "MY_DB",
-  //     "database_name": "my-database",
-  //     "database_id": ""
-  //   }
-  // ],
+  "d1_databases": [
+    {
+      "binding": "webmarks",
+      "database_name": "webmarks",
+      "database_id": "8c7071c0-ad83-460d-ad59-4749ba156aeb",
+    },
+  ],
   // "ai": {
   //   "binding": "AI"
   // },
