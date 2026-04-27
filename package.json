@@ -1,13 +1,20 @@
 {
   "name": "webmarks",
-  "module": "index.ts",
-  "type": "module",
   "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "type": "module",
+  "module": "index.ts",
+  "scripts": {
+    "fmt": "oxfmt",
+    "fmt:check": "oxfmt --check"
+  },
   "devDependencies": {
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "oxfmt": "^0.47.0"
   },
   "peerDependencies": {
     "typescript": "^6"
-  },
-  "workspaces": ["packages/*"]
+  }
 }
