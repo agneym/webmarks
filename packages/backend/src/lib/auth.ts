@@ -18,6 +18,17 @@ export const createAuth = (env: CloudflareBindings) =>
     secret: env.BETTER_AUTH_SECRET,
     emailAndPassword: {
       enabled: true,
+      minPasswordLength: 8,
+      maxPasswordLength: 128,
+    },
+    rateLimit: {
+      enabled: true,
+      window: 10,
+      max: 100,
+      customRules: {
+        "/sign-in/email": { window: 10, max: 3 },
+        "/sign-up/email": { window: 10, max: 3 },
+      },
     },
     socialProviders: {
       google: {
