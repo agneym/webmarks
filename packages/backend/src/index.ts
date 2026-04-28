@@ -1,6 +1,9 @@
 import { Hono } from "hono";
 import { createAuth, type Auth } from "./lib/auth";
 import { logger } from "./middleware/logger";
+import { createDrizzle } from "./db";
+import { bookmark } from "./db/schema";
+import { desc } from "drizzle-orm";
 
 const app = new Hono<{
   Bindings: CloudflareBindings;
@@ -32,6 +35,38 @@ app.get("/api/me", async (c) => {
     return c.json({ error: "Unauthorized" }, 401);
   }
   return c.json({ user: session.user });
+});
+
+// POST /api/bookmarks — accept a URL and store it with a unique ID
+app.post("/api/bookmarks", async (c) => {
+  const body = await c.req.json<{ url?: string }>();
+  const url = body?.url?.trim();
+
+  if (!url) {
+    return c.json({ error: "URL is required" }, 400);
+  }
+
+  // Basic URL validation
+  try {
+    new URL(url);
+  } catch {
+    return c.json({ error: "Invalid URL" }, 400);
+  }
+
+  const id = crypto.randomUUID();
+  const db = createDrizzle(c.env.webmarks);
+
+  await db.insert(bookmark).values({ id, url });
+
+  c.var.logger.info({ id, url }, "bookmark created");
+  return c.json({ id, url }, 201);
+});
+
+// GET /api/bookmarks — list all bookmarks
+app.get("/api/bookmarks", async (c) => {
+  const db = createDrizzle(c.env.webmarks);
+  const rows = await db.select().from(bookmark).orderBy(desc(bookmark.createdAt));
+  return c.json(rows);
 });
 
 // Health check
