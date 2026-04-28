@@ -1,9 +1,9 @@
 import { Hono } from "hono";
 import { createDrizzle, schema } from "./db";
 
-type Bindings = {
+interface Bindings {
   DB: D1Database;
-};
+}
 
 const app = new Hono<{ Bindings: Bindings }>();
 
