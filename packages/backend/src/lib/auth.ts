@@ -1,5 +1,6 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
+import { bearer, multiSession, openAPI } from "better-auth/plugins";
 import { createDrizzle } from "../db";
 
 /**
@@ -30,12 +31,21 @@ export const createAuth = (env: CloudflareBindings) =>
         "/sign-up/email": { window: 10, max: 3 },
       },
     },
+    // Allow cross-origin requests from web app, chrome extensions, etc.
+    trustedOrigins: [env.WEB_APP_URL, "chrome-extension://*"],
+
     socialProviders: {
       google: {
         clientId: env.GOOGLE_CLIENT_ID,
         clientSecret: env.GOOGLE_CLIENT_SECRET,
       },
     },
+
+    plugins: [
+      bearer(), // Accept Authorization: Bearer <token> for non-browser clients
+      multiSession({ maximumSessions: 5 }), // Multiple devices logged in at once
+      openAPI(), // Auto-generated API docs at /api/auth/reference
+    ],
   });
 
 export type Auth = ReturnType<typeof createAuth>;

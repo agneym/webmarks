@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { cors } from "hono/cors";
 import { createAuth, type Auth } from "./lib/auth";
 import { logger } from "./middleware/logger";
 import bookmarks from "./routes/bookmarks";
@@ -16,6 +17,19 @@ app.use("*", async (c, next) => {
   const auth = createAuth(c.env);
   c.set("auth", auth);
   await next();
+});
+
+// CORS for auth endpoints — required for cross-origin clients
+// (web app on different domain, chrome extensions, etc.)
+app.use("/api/auth/*", async (c, next) => {
+  const origin = c.env.WEB_APP_URL || "http://localhost:3000";
+  return cors({
+    origin: [origin],
+    allowHeaders: ["Content-Type", "Authorization"],
+    allowMethods: ["POST", "GET", "OPTIONS"],
+    exposeHeaders: ["set-auth-token"], // Let clients capture bearer token
+    credentials: true,
+  })(c, next);
 });
 
 // Mount Better Auth handler — handles /api/auth/sign-up/email,
