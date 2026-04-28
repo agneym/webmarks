@@ -1,10 +1,14 @@
 import { Hono } from "hono";
 import { createAuth, type Auth } from "./lib/auth";
+import { logger } from "./middleware/logger";
 
 const app = new Hono<{
   Bindings: CloudflareBindings;
-  Variables: { auth: Auth };
+  Variables: { auth: Auth; logger: import("pino").Logger };
 }>();
+
+// Request logging + attach logger
+app.use("*", logger());
 
 // Create auth instance per-request (D1 binding comes from env)
 app.use("*", async (c, next) => {
@@ -31,6 +35,9 @@ app.get("/api/me", async (c) => {
 });
 
 // Health check
-app.get("/", (c) => c.text("Webmarks API"));
+app.get("/", (c) => {
+  c.var.logger.info("health check");
+  return c.text("Webmarks API");
+});
 
 export default app;
