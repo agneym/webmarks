@@ -5,4 +5,4 @@
  * Drizzle will pick up every table exported from the schema directory
  * when generating migrations.
  */
-export { users } from "./users";
+export { user, session, account, verification } from "./auth";

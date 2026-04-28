@@ -3,9 +3,7 @@
   "name": "backend",
   "main": "src/index.ts",
   "compatibility_date": "2026-04-27",
-  // "compatibility_flags": [
-  //   "nodejs_compat"
-  // ],
+  "compatibility_flags": ["nodejs_compat"],
   // "vars": {
   //   "MY_VAR": "my-variable"
   // },
@@ -26,6 +24,7 @@
       "binding": "webmarks",
       "database_name": "webmarks",
       "database_id": "8c7071c0-ad83-460d-ad59-4749ba156aeb",
+      "migrations_dir": "./drizzle"
     },
   ],
   // "ai": {

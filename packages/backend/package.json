@@ -13,6 +13,7 @@
     "type:check": "tsc --noEmit"
   },
   "dependencies": {
+    "better-auth": "^1.6.9",
     "drizzle-orm": "^0.45.2",
     "hono": "^4.12.15"
   },
