@@ -21,6 +21,11 @@ const BookmarkSchema = z
   .object({
     id: z.uuid().openapi({ example: "550e8400-e29b-41d4-a716-446655440000" }),
     url: z.url().openapi({ example: "https://example.com" }),
+    title: z.string().nullable().optional().openapi({ example: "Example Domain" }),
+    description: z.string().nullable().optional().openapi({ example: "An example website" }),
+    image: z.string().nullable().optional().openapi({ example: "https://example.com/og.png" }),
+    favicon: z.string().nullable().optional(),
+    fetchStatus: z.enum(["pending", "success", "failed"]).optional().openapi({ example: "pending" }),
   })
   .openapi("Bookmark");
 
@@ -107,10 +112,13 @@ bookmarks.openapi(createBookmarkRoute, async (c) => {
   const id = crypto.randomUUID();
   const db = createDrizzle(c.env.webmarks);
 
-  await db.insert(bookmark).values({ id, url });
+  await db.insert(bookmark).values({ id, url, fetchStatus: "pending" });
+
+  // Enqueue background metadata fetch
+  await c.env.BOOKMARK_QUEUE.send({ bookmarkId: id, url });
 
   c.var.logger.info({ id, url }, "bookmark created");
-  return c.json({ id, url }, 201);
+  return c.json({ id, url, fetchStatus: "pending" }, 201);
 });
 
 bookmarks.openapi(listBookmarksRoute, async (c) => {

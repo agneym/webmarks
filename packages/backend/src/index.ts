@@ -3,6 +3,7 @@ import { cors } from "hono/cors";
 import { createAuth, type Auth } from "./lib/auth";
 import { logger } from "./middleware/logger";
 import bookmarks from "./routes/bookmarks";
+import { handleQueue, type QueueMessage } from "./queue-consumer";
 
 const app = new Hono<{
   Bindings: CloudflareBindings;
@@ -63,4 +64,9 @@ app.get("/api/doc", (c) => {
   );
 });
 
-export default app;
+export default {
+  fetch: app.fetch,
+  async queue(batch: MessageBatch<QueueMessage>, env: CloudflareBindings, _ctx: ExecutionContext) {
+    await handleQueue(batch, env);
+  },
+};
