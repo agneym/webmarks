@@ -13,7 +13,7 @@ const bookmarks = new OpenAPIHono<{ Bindings: Bindings; Variables: Variables }>(
 
 // --- Auth middleware (applies to all bookmark routes) ---
 
-bookmarks.use("/", async (c, next) => {
+bookmarks.use("*", async (c, next) => {
   const session = await c.var.auth.api.getSession({
     headers: c.req.raw.headers,
   });
