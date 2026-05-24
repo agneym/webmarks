@@ -6,7 +6,7 @@ import { fetchMetadata } from "./lib/fetch-metadata";
 const BASE_DELAY_SECONDS = 30;
 const MAX_DELAY_SECONDS = 3600; // 1 hour cap
 
-function calculateExponentialBackoff(
+export function calculateExponentialBackoff(
   attempts: number,
   baseDelay: number,
 ): number {
