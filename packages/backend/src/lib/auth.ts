@@ -1,6 +1,7 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { bearer, multiSession, openAPI } from "better-auth/plugins";
+import { v7 as uuidv7 } from "uuid";
 import { createDrizzle } from "../db";
 
 /**
@@ -21,6 +22,11 @@ export const createAuth = (env: CloudflareBindings) =>
       enabled: true,
       minPasswordLength: 8,
       maxPasswordLength: 128,
+    },
+    advanced: {
+      database: {
+        generateId: () => uuidv7(),
+      },
     },
     rateLimit: {
       enabled: true,

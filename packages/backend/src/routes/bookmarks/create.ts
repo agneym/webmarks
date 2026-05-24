@@ -1,4 +1,5 @@
 import { createRoute, z } from "@hono/zod-openapi";
+import { v7 as uuidv7 } from "uuid";
 import { createDrizzle } from "../../db";
 import { bookmark } from "../../db/schema";
 import { BookmarkSchema, ErrorSchema } from "./schemas";
@@ -58,7 +59,7 @@ export const createBookmarkRoute = createRoute({
 export async function createBookmarkHandler(c: any) {
   const { url } = c.req.valid("json");
   const userId = c.get("userId");
-  const id = crypto.randomUUID();
+  const id = uuidv7();
   const db = createDrizzle(c.env.webmarks);
 
   await db.insert(bookmark).values({ id, userId, url, fetchStatus: "pending" });
