@@ -8,7 +8,8 @@
   "module": "index.ts",
   "scripts": {
     "fmt": "oxfmt",
-    "fmt:check": "oxfmt --check"
+    "fmt:check": "oxfmt --check",
+    "test": "bun --filter backend test"
   },
   "devDependencies": {
     "@types/bun": "latest",
