@@ -7,7 +7,7 @@ import { handleQueue, type QueueMessage } from "./queue-consumer";
 
 const app = new Hono<{
   Bindings: CloudflareBindings;
-  Variables: { auth: Auth; logger: import("pino").Logger };
+  Variables: { auth: Auth; logger: import("pino").Logger; userId: string };
 }>();
 
 app.use("*", logger());

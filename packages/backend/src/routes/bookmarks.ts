@@ -2,10 +2,10 @@ import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import type { Auth } from "../lib/auth";
 import { createDrizzle } from "../db";
 import { bookmark } from "../db/schema";
-import { desc } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 
 type Bindings = CloudflareBindings;
-type Variables = { auth: Auth; logger: import("pino").Logger };
+type Variables = { auth: Auth; logger: import("pino").Logger; userId: string };
 
 const bookmarks = new OpenAPIHono<{ Bindings: Bindings; Variables: Variables }>();
 
@@ -21,6 +21,7 @@ const BookmarkSchema = z
   .object({
     id: z.uuid().openapi({ example: "550e8400-e29b-41d4-a716-446655440000" }),
     url: z.url().openapi({ example: "https://example.com" }),
+    userId: z.string().openapi({ example: "user_abc123" }),
     title: z.string().nullable().optional().openapi({ example: "Example Domain" }),
     description: z.string().nullable().optional().openapi({ example: "An example website" }),
     image: z.string().nullable().optional().openapi({ example: "https://example.com/og.png" }),
@@ -94,36 +95,42 @@ const listBookmarksRoute = createRoute({
 
 // --- Handlers ---
 
-// Middleware: require authentication for write operations
+// Middleware: require authentication for all bookmark operations
 bookmarks.use("/", async (c, next) => {
-  if (c.req.method === "POST") {
-    const session = await c.var.auth.api.getSession({
-      headers: c.req.raw.headers,
-    });
-    if (!session) {
-      return c.json({ error: "Unauthorized" }, 401);
-    }
+  const session = await c.var.auth.api.getSession({
+    headers: c.req.raw.headers,
+  });
+  if (!session) {
+    return c.json({ error: "Unauthorized" }, 401);
   }
+  // Stash userId for downstream handlers
+  c.set("userId", session.user.id);
   await next();
 });
 
 bookmarks.openapi(createBookmarkRoute, async (c) => {
   const { url } = c.req.valid("json");
+  const userId = c.get("userId");
   const id = crypto.randomUUID();
   const db = createDrizzle(c.env.webmarks);
 
-  await db.insert(bookmark).values({ id, url, fetchStatus: "pending" });
+  await db.insert(bookmark).values({ id, userId, url, fetchStatus: "pending" });
 
   // Enqueue background metadata fetch
   await c.env.BOOKMARK_QUEUE.send({ bookmarkId: id, url });
 
-  c.var.logger.info({ id, url }, "bookmark created");
-  return c.json({ id, url, fetchStatus: "pending" }, 201);
+  c.var.logger.info({ id, userId, url }, "bookmark created");
+  return c.json({ id, userId, url, fetchStatus: "pending" }, 201);
 });
 
 bookmarks.openapi(listBookmarksRoute, async (c) => {
+  const userId = c.get("userId");
   const db = createDrizzle(c.env.webmarks);
-  const rows = await db.select().from(bookmark).orderBy(desc(bookmark.createdAt));
+  const rows = await db
+    .select()
+    .from(bookmark)
+    .where(eq(bookmark.userId, userId))
+    .orderBy(desc(bookmark.createdAt));
   return c.json(rows, 200);
 });
 
