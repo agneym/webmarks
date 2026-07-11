@@ -9,7 +9,10 @@ export const BookmarkSchema = z
     description: z.string().nullable().optional().openapi({ example: "An example website" }),
     image: z.string().nullable().optional().openapi({ example: "https://example.com/og.png" }),
     favicon: z.string().nullable().optional(),
-    fetchStatus: z.enum(["pending", "success", "failed"]).optional().openapi({ example: "pending" }),
+    fetchStatus: z
+      .enum(["pending", "success", "failed"])
+      .optional()
+      .openapi({ example: "pending" }),
   })
   .openapi("Bookmark");
 

@@ -91,9 +91,7 @@ function resolveUrl(href: string | undefined, base: URL): string | undefined {
  * Fetch a URL and extract Open Graph / HTML metadata using Cloudflare's
  * native HTMLRewriter (streaming, zero dependencies).
  */
-export async function fetchMetadata(
-  urlString: string,
-): Promise<BookmarkMetadata> {
+export async function fetchMetadata(urlString: string): Promise<BookmarkMetadata> {
   const baseUrl = validateUrl(urlString);
 
   const controller = new AbortController();
@@ -136,9 +134,7 @@ export async function fetchMetadata(
 
   const contentType = response.headers.get("content-type") ?? "";
   if (contentType && !contentType.includes("text/")) {
-    throw new Error(
-      `Expected HTML but got ${contentType.split(";")[0]} for ${urlString}`,
-    );
+    throw new Error(`Expected HTML but got ${contentType.split(";")[0]} for ${urlString}`);
   }
 
   // State for HTMLRewriter callbacks
@@ -205,17 +201,13 @@ export async function fetchMetadata(
         }
       },
     })
-    .on(
-      'meta[name="twitter:description"], meta[property="twitter:description"]',
-      {
-        element(el: Element) {
-          if (!metadata.description) {
-            metadata.description =
-              el.getAttribute("content")?.trim() || undefined;
-          }
-        },
+    .on('meta[name="twitter:description"], meta[property="twitter:description"]', {
+      element(el: Element) {
+        if (!metadata.description) {
+          metadata.description = el.getAttribute("content")?.trim() || undefined;
+        }
       },
-    )
+    })
     .on('meta[name="twitter:image"], meta[property="twitter:image"]', {
       element(el: Element) {
         if (!ogImageUrl) {

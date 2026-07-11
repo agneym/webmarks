@@ -1,12 +1,7 @@
 /**
  * Insert a test user directly into D1.
  */
-export async function seedUser(
-  env: any,
-  id: string,
-  email: string,
-  name: string,
-) {
+export async function seedUser(env: any, id: string, email: string, name: string) {
   const now = Date.now();
   await env.webmarks
     .prepare(

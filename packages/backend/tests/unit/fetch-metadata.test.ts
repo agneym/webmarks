@@ -13,33 +13,29 @@ describe("fetchMetadata", () => {
   });
 
   it("throws on non-http protocol (ftp)", async () => {
-    await expect(fetchMetadata("ftp://example.com")).rejects.toThrow(
-      "Unsupported protocol",
-    );
+    await expect(fetchMetadata("ftp://example.com")).rejects.toThrow("Unsupported protocol");
   });
 
   it("throws on non-http protocol (mailto)", async () => {
-    await expect(fetchMetadata("mailto:user@example.com")).rejects.toThrow(
-      "Unsupported protocol",
-    );
+    await expect(fetchMetadata("mailto:user@example.com")).rejects.toThrow("Unsupported protocol");
   });
 
   it("throws for .pdf extension", async () => {
-    await expect(
-      fetchMetadata("https://example.com/doc.pdf"),
-    ).rejects.toThrow("non-HTML resource (.pdf)");
+    await expect(fetchMetadata("https://example.com/doc.pdf")).rejects.toThrow(
+      "non-HTML resource (.pdf)",
+    );
   });
 
   it("throws for .png extension", async () => {
-    await expect(
-      fetchMetadata("https://example.com/image.png"),
-    ).rejects.toThrow("non-HTML resource (.png)");
+    await expect(fetchMetadata("https://example.com/image.png")).rejects.toThrow(
+      "non-HTML resource (.png)",
+    );
   });
 
   it("throws for .mp4 extension", async () => {
-    await expect(
-      fetchMetadata("https://example.com/video.mp4"),
-    ).rejects.toThrow("non-HTML resource (.mp4)");
+    await expect(fetchMetadata("https://example.com/video.mp4")).rejects.toThrow(
+      "non-HTML resource (.mp4)",
+    );
   });
 
   // ── HTTP error responses ─────────────────────────────────────────────
@@ -52,9 +48,7 @@ describe("fetchMetadata", () => {
       }),
     );
 
-    await expect(fetchMetadata("https://example.com/missing")).rejects.toThrow(
-      "Page not found",
-    );
+    await expect(fetchMetadata("https://example.com/missing")).rejects.toThrow("Page not found");
   });
 
   it("throws 'Access forbidden' on 403", async () => {
@@ -65,9 +59,7 @@ describe("fetchMetadata", () => {
       }),
     );
 
-    await expect(fetchMetadata("https://example.com/secret")).rejects.toThrow(
-      "Access forbidden",
-    );
+    await expect(fetchMetadata("https://example.com/secret")).rejects.toThrow("Access forbidden");
   });
 
   it("throws 'Server error' on 500", async () => {
@@ -78,9 +70,7 @@ describe("fetchMetadata", () => {
       }),
     );
 
-    await expect(fetchMetadata("https://example.com/broken")).rejects.toThrow(
-      "Server error",
-    );
+    await expect(fetchMetadata("https://example.com/broken")).rejects.toThrow("Server error");
   });
 
   // ── Non-text content type ────────────────────────────────────────────

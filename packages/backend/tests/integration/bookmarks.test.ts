@@ -18,10 +18,7 @@ beforeAll(async () => {
 
 afterEach(async () => {
   for (const id of seededIds) {
-    await (env as any).webmarks
-      .prepare("DELETE FROM bookmark WHERE id = ?")
-      .bind(id)
-      .run();
+    await (env as any).webmarks.prepare("DELETE FROM bookmark WHERE id = ?").bind(id).run();
   }
   seededIds = [];
 });
@@ -38,11 +35,15 @@ async function seedAndTrack(opts: Parameters<typeof seedBookmark>[1]) {
 
 describe("POST /api/bookmarks", () => {
   it("creates a bookmark and returns 201 with correct fields", async () => {
-    const res = await app.request("/api/bookmarks", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url: "https://example.com" }),
-    }, env as any);
+    const res = await app.request(
+      "/api/bookmarks",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: "https://example.com" }),
+      },
+      env as any,
+    );
 
     expect(res.status).toBe(201);
     const body: any = await res.json();
@@ -58,21 +59,29 @@ describe("POST /api/bookmarks", () => {
   });
 
   it("rejects invalid URL with 400", async () => {
-    const res = await app.request("/api/bookmarks", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url: "not-a-url" }),
-    }, env as any);
+    const res = await app.request(
+      "/api/bookmarks",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: "not-a-url" }),
+      },
+      env as any,
+    );
 
     expect(res.status).toBe(400);
   });
 
   it("rejects empty body with 400", async () => {
-    const res = await app.request("/api/bookmarks", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({}),
-    }, env as any);
+    const res = await app.request(
+      "/api/bookmarks",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      },
+      env as any,
+    );
 
     expect(res.status).toBe(400);
   });
@@ -163,14 +172,18 @@ describe("PATCH /api/bookmarks/:id", () => {
       userId: TEST_USER_ID,
     });
 
-    const res = await app.request("/api/bookmarks/bm-update-001", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        title: "Updated Title",
-        description: "Updated description",
-      }),
-    }, env as any);
+    const res = await app.request(
+      "/api/bookmarks/bm-update-001",
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: "Updated Title",
+          description: "Updated description",
+        }),
+      },
+      env as any,
+    );
 
     expect(res.status).toBe(200);
     const body: any = await res.json();
@@ -185,11 +198,15 @@ describe("PATCH /api/bookmarks/:id", () => {
       userId: TEST_USER_ID,
     });
 
-    const res = await app.request("/api/bookmarks/bm-update-002", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({}),
-    }, env as any);
+    const res = await app.request(
+      "/api/bookmarks/bm-update-002",
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      },
+      env as any,
+    );
 
     expect(res.status).toBe(400);
     const body: any = await res.json();
@@ -197,11 +214,15 @@ describe("PATCH /api/bookmarks/:id", () => {
   });
 
   it("returns 404 for non-existent bookmark", async () => {
-    const res = await app.request("/api/bookmarks/non-existent-id", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: "Ghost" }),
-    }, env as any);
+    const res = await app.request(
+      "/api/bookmarks/non-existent-id",
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: "Ghost" }),
+      },
+      env as any,
+    );
 
     expect(res.status).toBe(404);
   });
@@ -219,9 +240,13 @@ describe("DELETE /api/bookmarks/:id", () => {
       userId: TEST_USER_ID,
     });
 
-    const res = await app.request("/api/bookmarks/bm-delete-001", {
-      method: "DELETE",
-    }, env as any);
+    const res = await app.request(
+      "/api/bookmarks/bm-delete-001",
+      {
+        method: "DELETE",
+      },
+      env as any,
+    );
 
     expect(res.status).toBe(200);
     const body: any = await res.json();
@@ -232,9 +257,13 @@ describe("DELETE /api/bookmarks/:id", () => {
   });
 
   it("returns 404 for non-existent bookmark", async () => {
-    const res = await app.request("/api/bookmarks/non-existent-id", {
-      method: "DELETE",
-    }, env as any);
+    const res = await app.request(
+      "/api/bookmarks/non-existent-id",
+      {
+        method: "DELETE",
+      },
+      env as any,
+    );
 
     expect(res.status).toBe(404);
     const body: any = await res.json();

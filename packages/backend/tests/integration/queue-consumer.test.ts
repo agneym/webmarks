@@ -30,10 +30,7 @@ describe("handleQueue", () => {
       .prepare("DELETE FROM bookmark WHERE user_id = ?")
       .bind(TEST_USER_ID)
       .run();
-    await (env as any).webmarks
-      .prepare("DELETE FROM user WHERE id = ?")
-      .bind(TEST_USER_ID)
-      .run();
+    await (env as any).webmarks.prepare("DELETE FROM user WHERE id = ?").bind(TEST_USER_ID).run();
     vi.restoreAllMocks();
   });
 
@@ -97,9 +94,7 @@ describe("handleQueue", () => {
     });
 
     // Mock fetch to throw
-    fetchSpy = vi
-      .spyOn(globalThis, "fetch")
-      .mockRejectedValue(new Error("Network error"));
+    fetchSpy = vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("Network error"));
 
     const msg = createMockMessage({ bookmarkId, url }, 2);
     const batch = { messages: [msg] } as any;
@@ -133,9 +128,7 @@ describe("handleQueue", () => {
     });
 
     // Mock fetch to throw
-    fetchSpy = vi
-      .spyOn(globalThis, "fetch")
-      .mockRejectedValue(new Error("Server error"));
+    fetchSpy = vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("Server error"));
 
     const msg = createMockMessage({ bookmarkId, url }, 5);
     const batch = { messages: [msg] } as any;

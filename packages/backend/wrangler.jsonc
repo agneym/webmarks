@@ -24,15 +24,15 @@
       "binding": "webmarks",
       "database_name": "webmarks",
       "database_id": "8c7071c0-ad83-460d-ad59-4749ba156aeb",
-      "migrations_dir": "./drizzle"
+      "migrations_dir": "./drizzle",
     },
   ],
   "queues": {
     "producers": [
       {
         "binding": "BOOKMARK_QUEUE",
-        "queue": "bookmark-metadata-queue"
-      }
+        "queue": "bookmark-metadata-queue",
+      },
     ],
     "consumers": [
       {
@@ -40,9 +40,9 @@
         "max_batch_size": 1,
         "max_batch_timeout": 5,
         "max_retries": 5,
-        "retry_delay": 30
-      }
-    ]
+        "retry_delay": 30,
+      },
+    ],
   },
   // "ai": {
   //   "binding": "AI"

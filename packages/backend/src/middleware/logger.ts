@@ -12,12 +12,15 @@ export const logger = (): MiddlewareHandler => {
     await next();
     const duration = performance.now() - start;
 
-    logger.info({
-      method: c.req.method,
-      path: getPath(c.req.raw),
-      status: c.res.status,
-      duration: Math.round(duration * 100) / 100,
-    }, "request");
+    logger.info(
+      {
+        method: c.req.method,
+        path: getPath(c.req.raw),
+        status: c.res.status,
+        duration: Math.round(duration * 100) / 100,
+      },
+      "request",
+    );
   };
 };
 
