@@ -1,14 +1,27 @@
 import { createRoute, z } from "@hono/zod-openapi";
-import { createDrizzle } from "../../db";
-import { bookmark } from "../../db/schema";
-import { desc, eq } from "drizzle-orm";
 import { BookmarkSchema } from "./schemas";
+
+// --- Schema ---
+
+const PaginationQuerySchema = z.object({
+  limit: z
+    .string()
+    .optional()
+    .openapi({ example: "50", description: "Max items to return (1–100, default 50)" }),
+  offset: z
+    .string()
+    .optional()
+    .openapi({ example: "0", description: "Number of items to skip (default 0)" }),
+});
 
 // --- Route definition ---
 
 export const listBookmarksRoute = createRoute({
   method: "get",
   path: "/",
+  request: {
+    query: PaginationQuerySchema,
+  },
   responses: {
     200: {
       content: {
@@ -16,20 +29,7 @@ export const listBookmarksRoute = createRoute({
           schema: z.array(BookmarkSchema),
         },
       },
-      description: "List of bookmarks",
+      description: "List of bookmarks (newest first)",
     },
   },
 });
-
-// --- Handler ---
-
-export async function listBookmarksHandler(c: any) {
-  const userId = c.get("userId");
-  const db = createDrizzle(c.env.webmarks);
-  const rows = await db
-    .select()
-    .from(bookmark)
-    .where(eq(bookmark.userId, userId))
-    .orderBy(desc(bookmark.createdAt));
-  return c.json(rows, 200);
-}

@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import { bodyLimit } from "hono/body-limit";
 import { createAuth, type Auth } from "./lib/auth";
 import { logger } from "./middleware/logger";
 import bookmarks from "./routes/bookmarks";
@@ -10,7 +11,12 @@ const app = new Hono<{
   Variables: { auth: Auth; logger: import("pino").Logger; userId: string };
 }>();
 
+// --- Global middleware ---
+
 app.use("*", logger());
+
+// 1 MB body size limit
+app.use("*", bodyLimit({ maxSize: 1024 * 1024 }));
 
 // Create auth instance per-request (D1 binding comes from env)
 app.use("*", async (c, next) => {
@@ -19,21 +25,34 @@ app.use("*", async (c, next) => {
   await next();
 });
 
+// --- CORS ---
+
 // CORS for auth endpoints — required for cross-origin clients
-// (web app on different domain, chrome extensions, etc.)
 app.use("/api/auth/*", async (c, next) => {
   const origin = c.env.WEB_APP_URL || "http://localhost:3000";
   return cors({
     origin: [origin],
     allowHeaders: ["Content-Type", "Authorization"],
     allowMethods: ["POST", "GET", "OPTIONS"],
-    exposeHeaders: ["set-auth-token"], // Let clients capture bearer token
+    exposeHeaders: ["set-auth-token"],
     credentials: true,
   })(c, next);
 });
 
-// Mount Better Auth handler — handles /api/auth/sign-up/email,
-// /api/auth/sign-in/email, /api/auth/sign-out, /api/auth/session, etc.
+// CORS for bookmark endpoints — browser clients need this too
+app.use("/api/bookmarks/*", async (c, next) => {
+  const origin = c.env.WEB_APP_URL || "http://localhost:3000";
+  return cors({
+    origin: [origin],
+    allowHeaders: ["Content-Type", "Authorization"],
+    allowMethods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+    credentials: true,
+  })(c, next);
+});
+
+// --- Routes ---
+
+// Mount Better Auth handler
 app.on(["POST", "GET"], "/api/auth/*", (c) => {
   return c.var.auth.handler(c.req.raw);
 });
@@ -63,6 +82,15 @@ app.get("/api/doc", (c) => {
     }),
   );
 });
+
+// --- Global error handler ---
+
+app.onError((err, c) => {
+  c.var.logger?.error({ err: err.message, stack: err.stack }, "unhandled error");
+  return c.json({ error: "Internal server error" }, 500);
+});
+
+// --- Worker export ---
 
 export default {
   fetch: app.fetch,

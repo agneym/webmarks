@@ -1,7 +1,4 @@
 import { createRoute, z } from "@hono/zod-openapi";
-import { v7 as uuidv7 } from "uuid";
-import { createDrizzle } from "../../db";
-import { bookmark } from "../../db/schema";
 import { BookmarkSchema, ErrorSchema } from "./schemas";
 
 // --- Schema ---
@@ -51,22 +48,13 @@ export const createBookmarkRoute = createRoute({
       },
       description: "Unauthorized",
     },
+    409: {
+      content: {
+        "application/json": {
+          schema: ErrorSchema,
+        },
+      },
+      description: "Bookmark already exists for this URL",
+    },
   },
 });
-
-// --- Handler ---
-
-export async function createBookmarkHandler(c: any) {
-  const { url } = c.req.valid("json");
-  const userId = c.get("userId");
-  const id = uuidv7();
-  const db = createDrizzle(c.env.webmarks);
-
-  await db.insert(bookmark).values({ id, userId, url, fetchStatus: "pending" });
-
-  // Enqueue background metadata fetch
-  await c.env.BOOKMARK_QUEUE.send({ bookmarkId: id, url });
-
-  c.var.logger.info({ id, userId, url }, "bookmark created");
-  return c.json({ id, userId, url, fetchStatus: "pending" }, 201);
-}
