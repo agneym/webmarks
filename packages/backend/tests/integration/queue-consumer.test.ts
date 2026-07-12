@@ -12,8 +12,8 @@ function createMockMessage(body: QueueMessage, attempts = 0) {
   return {
     body,
     attempts,
-    ack: vi.fn(),
-    retry: vi.fn(),
+    ack: vi.fn<() => void>(),
+    retry: vi.fn<() => void>(),
   };
 }
 

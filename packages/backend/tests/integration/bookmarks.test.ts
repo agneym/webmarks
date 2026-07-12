@@ -17,6 +17,7 @@ beforeAll(async () => {
 });
 
 afterEach(async () => {
+  // oxlint-disable no-await-in-loop — D1 cleanup must run sequentially
   for (const id of seededIds) {
     await (env as any).webmarks.prepare("DELETE FROM bookmark WHERE id = ?").bind(id).run();
   }

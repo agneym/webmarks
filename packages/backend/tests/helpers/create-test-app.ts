@@ -28,7 +28,7 @@ export function createTestApp() {
           session: { id: "test-session" },
         }),
       },
-      handler: async (req: Request) => new Response("auth handler"),
+      handler: async (_req: Request) => new Response("auth handler"),
     });
     c.set("logger", {
       info: () => {},

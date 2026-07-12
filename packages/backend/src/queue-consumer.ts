@@ -18,6 +18,7 @@ export interface QueueMessage {
 export async function handleQueue(batch: MessageBatch<QueueMessage>, env: CloudflareBindings) {
   const db = createDrizzle(env.webmarks);
 
+  // oxlint-disable no-await-in-loop — queue messages must be processed sequentially
   for (const msg of batch.messages) {
     const { bookmarkId, url } = msg.body;
 

@@ -5,14 +5,14 @@ import { createLogger } from "../lib/logger";
 
 export const logger = (): MiddlewareHandler => {
   return async (c: Context, next: Next) => {
-    const logger = createLogger(c.env);
-    c.set("logger", logger);
+    const log = createLogger(c.env);
+    c.set("logger", log);
 
     const start = performance.now();
     await next();
     const duration = performance.now() - start;
 
-    logger.info(
+    log.info(
       {
         method: c.req.method,
         path: getPath(c.req.raw),

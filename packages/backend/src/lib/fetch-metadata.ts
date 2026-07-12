@@ -110,9 +110,9 @@ export async function fetchMetadata(urlString: string): Promise<BookmarkMetadata
   } catch (err: any) {
     clearTimeout(timeoutId);
     if (err?.name === "AbortError") {
-      throw new Error(`Timeout fetching ${urlString}`);
+      throw new Error(`Timeout fetching ${urlString}`, { cause: err });
     }
-    throw new Error(`Network error fetching ${urlString}: ${err?.message}`);
+    throw new Error(`Network error fetching ${urlString}: ${err?.message}`, { cause: err });
   }
   clearTimeout(timeoutId);
 
@@ -140,10 +140,8 @@ export async function fetchMetadata(urlString: string): Promise<BookmarkMetadata
   // State for HTMLRewriter callbacks
   const metadata: BookmarkMetadata = {};
 
-  // Track image candidates: {url, width, height} to pick the best one
+  // Track image candidates
   let ogImageUrl: string | undefined;
-  let ogImageWidth = 0;
-  let ogImageHeight = 0;
 
   // Track all favicon candidates (last one wins due to HTMLRewriter ordering,
   // but we order selectors by priority: apple-touch-icon > shortcut icon > icon)
@@ -173,18 +171,7 @@ export async function fetchMetadata(urlString: string): Promise<BookmarkMetadata
         }
       },
     })
-    .on('meta[property="og:image:width"]', {
-      element(el: Element) {
-        const val = parseInt(el.getAttribute("content") ?? "", 10);
-        if (!isNaN(val)) ogImageWidth = val;
-      },
-    })
-    .on('meta[property="og:image:height"]', {
-      element(el: Element) {
-        const val = parseInt(el.getAttribute("content") ?? "", 10);
-        if (!isNaN(val)) ogImageHeight = val;
-      },
-    })
+
     .on('meta[property="og:site_name"]', {
       element(el: Element) {
         if (!metadata.siteName) {

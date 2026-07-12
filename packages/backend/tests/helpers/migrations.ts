@@ -19,6 +19,7 @@ export async function applyMigrations(d1: D1Database) {
     `CREATE INDEX IF NOT EXISTS "bookmark_userId_idx" ON "bookmark" ("user_id")`,
   ];
 
+  // oxlint-disable no-await-in-loop — DDL must run sequentially
   for (const sql of statements) {
     await d1.prepare(sql).run();
   }
