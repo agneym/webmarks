@@ -12,13 +12,10 @@ const PaginationQuerySchema = z.object({
     .string()
     .optional()
     .openapi({ example: "0", description: "Number of items to skip (default 0)" }),
-  q: z
-    .string()
-    .optional()
-    .openapi({
-      example: "example",
-      description: "Search query — matches against title, description, and URL",
-    }),
+  q: z.string().optional().openapi({
+    example: "example",
+    description: "Search query — matches against title, description, and URL",
+  }),
   tag: z
     .string()
     .optional()
