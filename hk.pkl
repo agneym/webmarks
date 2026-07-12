@@ -5,14 +5,10 @@ hooks {
   ["pre-commit"] {
     steps {
       ["oxfmt"] {
-        check_first = true
-        check = "./node_modules/.bin/oxfmt --check --no-error-on-unmatched-pattern {{files}}"
-        fix = "./node_modules/.bin/oxfmt --write {{files}}"
+        check = "./node_modules/.bin/oxfmt --write --no-error-on-unmatched-pattern {{files}}"
       }
       ["oxlint"] {
-        check_first = true
         check = "./node_modules/.bin/oxlint --no-error-on-unmatched-pattern {{files}}"
-        fix = "./node_modules/.bin/oxlint --fix {{files}}"
       }
     }
   }
