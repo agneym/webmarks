@@ -1,0 +1,11 @@
+CLOUDFLARE_ACCOUNT_ID=your-account-id
+CLOUDFLARE_DATABASE_ID=your-database-id
+CLOUDFLARE_API_TOKEN=your-d1-api-token
+
+BETTER_AUTH_URL=http://localhost:8787
+BETTER_AUTH_SECRET=your-generated-secret
+
+GOOGLE_CLIENT_ID=your-google-client-id
+GOOGLE_CLIENT_SECRET=your-google-client-secret
+
+WEB_APP_URL=http://localhost:3000

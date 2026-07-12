@@ -4,6 +4,7 @@ import { bodyLimit } from "hono/body-limit";
 import { createAuth, type Auth } from "./lib/auth";
 import { logger } from "./middleware/logger";
 import bookmarks from "./routes/bookmarks";
+import tags from "./routes/tags";
 import { handleQueue, type QueueMessage } from "./queue-consumer";
 
 const app = new Hono<{
@@ -50,6 +51,17 @@ app.use("/api/bookmarks/*", async (c, next) => {
   })(c, next);
 });
 
+// CORS for tags endpoints
+app.use("/api/tags/*", async (c, next) => {
+  const origin = c.env.WEB_APP_URL || "http://localhost:3000";
+  return cors({
+    origin: [origin],
+    allowHeaders: ["Content-Type", "Authorization"],
+    allowMethods: ["GET", "OPTIONS"],
+    credentials: true,
+  })(c, next);
+});
+
 // --- Routes ---
 
 // Mount Better Auth handler
@@ -68,6 +80,7 @@ app.get("/api/me", async (c) => {
 });
 
 app.route("/api/bookmarks", bookmarks);
+app.route("/api/tags", tags);
 
 app.get("/", (c) => {
   c.var.logger.info("health check");

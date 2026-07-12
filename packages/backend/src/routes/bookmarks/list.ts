@@ -12,6 +12,18 @@ const PaginationQuerySchema = z.object({
     .string()
     .optional()
     .openapi({ example: "0", description: "Number of items to skip (default 0)" }),
+  q: z
+    .string()
+    .optional()
+    .openapi({ example: "example", description: "Search query — matches against title, description, and URL" }),
+  tag: z
+    .string()
+    .optional()
+    .openapi({ example: "work", description: "Filter bookmarks by tag name" }),
+  fetchStatus: z
+    .enum(["pending", "success", "failed"])
+    .optional()
+    .openapi({ example: "pending", description: "Filter by metadata fetch status" }),
 });
 
 // --- Route definition ---

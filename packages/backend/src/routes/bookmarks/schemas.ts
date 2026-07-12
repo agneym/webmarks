@@ -16,6 +16,21 @@ export const BookmarkSchema = z
   })
   .openapi("Bookmark");
 
+export const TagSchema = z
+  .object({
+    id: z.string().openapi({ example: "tag_abc123" }),
+    name: z.string().openapi({ example: "work" }),
+  })
+  .openapi("Tag");
+
+export const TagWithCountSchema = z
+  .object({
+    id: z.string().openapi({ example: "tag_abc123" }),
+    name: z.string().openapi({ example: "work" }),
+    bookmarkCount: z.number().openapi({ example: 12 }),
+  })
+  .openapi("TagWithCount");
+
 export const BookmarkIdParamSchema = z.object({
   id: z.string().openapi({ example: "550e8400-e29b-41d4-a716-446655440000" }),
 });

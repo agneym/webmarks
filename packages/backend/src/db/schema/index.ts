@@ -7,3 +7,4 @@
  */
 export { user, session, account, verification } from "./auth";
 export { bookmark } from "./bookmark";
+export { tag, bookmarkTag } from "./tag";

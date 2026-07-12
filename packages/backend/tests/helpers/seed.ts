@@ -12,6 +12,32 @@ export async function seedUser(env: any, id: string, email: string, name: string
 }
 
 /**
+ * Insert a test tag directly into D1.
+ */
+export async function seedTag(env: any, opts: { id: string; name: string; userId: string }) {
+  const now = Date.now();
+  await env.webmarks
+    .prepare(
+      "INSERT OR IGNORE INTO tag (id, name, user_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+    )
+    .bind(opts.id, opts.name, opts.userId, now, now)
+    .run();
+}
+
+/**
+ * Insert a bookmark-tag association directly into D1.
+ */
+export async function seedBookmarkTag(
+  env: any,
+  opts: { bookmarkId: string; tagId: string },
+) {
+  await env.webmarks
+    .prepare("INSERT OR IGNORE INTO bookmark_tag (bookmark_id, tag_id) VALUES (?, ?)")
+    .bind(opts.bookmarkId, opts.tagId)
+    .run();
+}
+
+/**
  * Insert a test bookmark directly into D1.
  */
 export async function seedBookmark(

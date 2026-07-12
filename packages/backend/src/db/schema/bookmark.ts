@@ -1,5 +1,7 @@
+import { relations } from "drizzle-orm";
 import { index, sqliteTable, text } from "drizzle-orm/sqlite-core";
 import { user } from "./auth";
+import { bookmarkTag } from "./tag";
 import { timestamps } from "./helpers";
 
 export const bookmark = sqliteTable(
@@ -21,3 +23,11 @@ export const bookmark = sqliteTable(
   },
   (table) => [index("bookmark_userId_idx").on(table.userId)],
 );
+
+export const bookmarkRelations = relations(bookmark, ({ many, one }) => ({
+  user: one(user, {
+    fields: [bookmark.userId],
+    references: [user.id],
+  }),
+  bookmarkTags: many(bookmarkTag),
+}));

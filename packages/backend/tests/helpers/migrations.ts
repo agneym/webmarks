@@ -17,6 +17,11 @@ export async function applyMigrations(d1: D1Database) {
     // Bookmark table with all columns from final schema
     `CREATE TABLE IF NOT EXISTS "bookmark" ("id" text PRIMARY KEY NOT NULL, "url" text NOT NULL, "title" text, "description" text, "image" text, "favicon" text, "fetch_status" text DEFAULT 'pending' NOT NULL, "user_id" text NOT NULL REFERENCES user(id), "created_at" integer DEFAULT (cast(unixepoch('subsecond') * 1000 as integer)) NOT NULL, "updated_at" integer DEFAULT (cast(unixepoch('subsecond') * 1000 as integer)) NOT NULL)`,
     `CREATE INDEX IF NOT EXISTS "bookmark_userId_idx" ON "bookmark" ("user_id")`,
+    // Tag tables
+    `CREATE TABLE IF NOT EXISTS "tag" ("id" text PRIMARY KEY NOT NULL, "name" text NOT NULL, "user_id" text NOT NULL REFERENCES user(id) ON DELETE cascade, "created_at" integer DEFAULT (cast(unixepoch('subsecond') * 1000 as integer)) NOT NULL, "updated_at" integer DEFAULT (cast(unixepoch('subsecond') * 1000 as integer)) NOT NULL)`,
+    `CREATE INDEX IF NOT EXISTS "tag_userId_idx" ON "tag" ("user_id")`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS "tag_userId_name_unique" ON "tag" ("user_id", "name")`,
+    `CREATE TABLE IF NOT EXISTS "bookmark_tag" ("bookmark_id" text NOT NULL REFERENCES bookmark(id) ON DELETE cascade, "tag_id" text NOT NULL REFERENCES tag(id) ON DELETE cascade, PRIMARY KEY ("bookmark_id", "tag_id"))`,
   ];
 
   // oxlint-disable no-await-in-loop — DDL must run sequentially

@@ -36,6 +36,13 @@
       "when": 1779647195534,
       "tag": "0004_living_valeria_richards",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1783836209119,
+      "tag": "0005_yielding_ultragirl",
+      "breakpoints": true
     }
   ]
 }
