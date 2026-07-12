@@ -27,10 +27,7 @@ export async function seedTag(env: any, opts: { id: string; name: string; userId
 /**
  * Insert a bookmark-tag association directly into D1.
  */
-export async function seedBookmarkTag(
-  env: any,
-  opts: { bookmarkId: string; tagId: string },
-) {
+export async function seedBookmarkTag(env: any, opts: { bookmarkId: string; tagId: string }) {
   await env.webmarks
     .prepare("INSERT OR IGNORE INTO bookmark_tag (bookmark_id, tag_id) VALUES (?, ?)")
     .bind(opts.bookmarkId, opts.tagId)

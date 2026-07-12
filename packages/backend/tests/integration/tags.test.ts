@@ -23,10 +23,15 @@ beforeAll(async () => {
 afterEach(async () => {
   // Clean up ALL test data by user ID (handles auto-generated IDs too)
   await (env as any).webmarks
-    .prepare("DELETE FROM bookmark_tag WHERE bookmark_id IN (SELECT id FROM bookmark WHERE user_id = ?)")
+    .prepare(
+      "DELETE FROM bookmark_tag WHERE bookmark_id IN (SELECT id FROM bookmark WHERE user_id = ?)",
+    )
     .bind(TEST_USER_ID)
     .run();
-  await (env as any).webmarks.prepare("DELETE FROM bookmark WHERE user_id = ?").bind(TEST_USER_ID).run();
+  await (env as any).webmarks
+    .prepare("DELETE FROM bookmark WHERE user_id = ?")
+    .bind(TEST_USER_ID)
+    .run();
   await (env as any).webmarks.prepare("DELETE FROM tag WHERE user_id = ?").bind(TEST_USER_ID).run();
   seededIds = [];
 });

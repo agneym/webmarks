@@ -235,9 +235,7 @@ bookmarks.openapi(setBookmarkTagsRoute, async (c) => {
 
   // Return the final tag list
   const finalTags =
-    tagIds.length > 0
-      ? await db.select().from(tag).where(inArray(tag.id, tagIds))
-      : [];
+    tagIds.length > 0 ? await db.select().from(tag).where(inArray(tag.id, tagIds)) : [];
 
   return c.json({ tags: finalTags }, 200);
 });

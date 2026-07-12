@@ -15,7 +15,10 @@ const PaginationQuerySchema = z.object({
   q: z
     .string()
     .optional()
-    .openapi({ example: "example", description: "Search query — matches against title, description, and URL" }),
+    .openapi({
+      example: "example",
+      description: "Search query — matches against title, description, and URL",
+    }),
   tag: z
     .string()
     .optional()
