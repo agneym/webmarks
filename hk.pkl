@@ -5,15 +5,13 @@ hooks {
   ["pre-commit"] {
     steps {
       ["oxfmt"] {
-        glob = "*.{ts,tsx,js,jsx,json,jsonc,md,mjs,cjs}"
         check_first = true
-        check = "./node_modules/.bin/oxfmt --check {{files}}"
+        check = "./node_modules/.bin/oxfmt --check --no-error-on-unmatched-pattern {{files}}"
         fix = "./node_modules/.bin/oxfmt --write {{files}}"
       }
       ["oxlint"] {
-        glob = "*.{ts,tsx,js,jsx,mjs,cjs}"
         check_first = true
-        check = "./node_modules/.bin/oxlint {{files}}"
+        check = "./node_modules/.bin/oxlint --no-error-on-unmatched-pattern {{files}}"
         fix = "./node_modules/.bin/oxlint --fix {{files}}"
       }
     }
