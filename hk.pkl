@@ -1,0 +1,21 @@
+amends "package://github.com/jdx/hk/releases/download/v1.50.0/hk@1.50.0#/Config.pkl"
+
+hooks {
+  fix = true
+  ["pre-commit"] {
+    steps {
+      ["oxfmt"] {
+        glob = "*.{ts,tsx,js,jsx,json,jsonc,md,mjs,cjs}"
+        check_first = true
+        check = "./node_modules/.bin/oxfmt --check {{files}}"
+        fix = "./node_modules/.bin/oxfmt --write {{files}}"
+      }
+      ["oxlint"] {
+        glob = "*.{ts,tsx,js,jsx,mjs,cjs}"
+        check_first = true
+        check = "./node_modules/.bin/oxlint {{files}}"
+        fix = "./node_modules/.bin/oxlint --fix {{files}}"
+      }
+    }
+  }
+}
