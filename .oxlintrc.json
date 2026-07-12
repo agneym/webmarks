@@ -1,0 +1,47 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "env": {
+    "es2024": true
+  },
+  "categories": {
+    "correctness": "error",
+    "suspicious": "warn",
+    "perf": "warn",
+    "pedantic": "off",
+    "style": "off",
+    "restriction": "off",
+    "nursery": "off"
+  },
+  "plugins": [
+    "oxc",
+    "typescript",
+    "import",
+    "unicorn",
+    "vitest",
+    "eslint"
+  ],
+  "ignorePatterns": [
+    "node_modules",
+    "dist",
+    ".wrangler",
+    "**/.wrangler/**"
+  ],
+  "rules": {
+    "no-console": "off",
+    "unicorn/filename-case": "off"
+  },
+  "overrides": [
+    {
+      "files": ["**/tests/**", "**/test/**", "**/__tests__/**"],
+      "env": {
+        "vitest": true
+      }
+    },
+    {
+      "files": ["**/drizzle.config.ts", "scripts/**"],
+      "rules": {
+        "no-console": "off"
+      }
+    }
+  ]
+}
