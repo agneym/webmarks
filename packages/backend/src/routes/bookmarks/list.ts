@@ -24,6 +24,11 @@ const PaginationQuerySchema = z.object({
     .enum(["pending", "success", "failed"])
     .optional()
     .openapi({ example: "pending", description: "Filter by metadata fetch status" }),
+  sort: z.enum(["newest", "oldest", "title", "title_desc", "updated"]).optional().openapi({
+    example: "newest",
+    description:
+      "Sort order: newest (default), oldest, title (A–Z), title_desc (Z–A), updated (recently updated first)",
+  }),
 });
 
 // --- Route definition ---
@@ -41,7 +46,7 @@ export const listBookmarksRoute = createRoute({
           schema: BookmarkListResponseSchema,
         },
       },
-      description: "Paginated list of bookmarks (newest first) with total matching count",
+      description: "Paginated list of bookmarks with total matching count",
     },
   },
 });

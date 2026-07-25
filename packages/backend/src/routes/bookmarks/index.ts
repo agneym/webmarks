@@ -1,6 +1,6 @@
 import { OpenAPIHono } from "@hono/zod-openapi";
 import { v7 as uuidv7 } from "uuid";
-import { and, desc, eq, inArray, like, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, like, or, sql } from "drizzle-orm";
 
 import type { Auth } from "../../lib/auth";
 import { createDrizzle } from "../../db";
@@ -79,6 +79,7 @@ bookmarks.openapi(listBookmarksRoute, async (c) => {
   const q = c.req.query("q");
   const tagFilter = c.req.query("tag");
   const fetchStatus = c.req.query("fetchStatus");
+  const sort = c.req.query("sort") ?? "newest";
 
   // Build WHERE conditions
   const conditions: ReturnType<typeof eq>[] = [eq(bookmark.userId, userId)];
@@ -118,11 +119,27 @@ bookmarks.openapi(listBookmarksRoute, async (c) => {
     .where(where);
   const total = countRow?.total ?? 0;
 
+  const orderBy = (() => {
+    switch (sort) {
+      case "oldest":
+        return asc(bookmark.createdAt);
+      case "title":
+        return asc(bookmark.title);
+      case "title_desc":
+        return desc(bookmark.title);
+      case "updated":
+        return desc(bookmark.updatedAt);
+      case "newest":
+      default:
+        return desc(bookmark.createdAt);
+    }
+  })();
+
   const rows = await db
     .select()
     .from(bookmark)
     .where(where)
-    .orderBy(desc(bookmark.createdAt))
+    .orderBy(orderBy)
     .limit(limit)
     .offset(offset);
 

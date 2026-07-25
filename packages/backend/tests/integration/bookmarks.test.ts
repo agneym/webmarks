@@ -141,6 +141,68 @@ describe("GET /api/bookmarks", () => {
     expect(body.offset).toBe(1);
     expect(body.bookmarks).toHaveLength(1);
   });
+
+  it("sorts by newest (default), oldest, title, and updated", async () => {
+    await seedAndTrack({
+      id: "bm-sort-a",
+      url: "https://a.example.com",
+      userId: TEST_USER_ID,
+      title: "Alpha",
+      createdAt: 1000,
+      updatedAt: 5000,
+    });
+    await seedAndTrack({
+      id: "bm-sort-b",
+      url: "https://b.example.com",
+      userId: TEST_USER_ID,
+      title: "Charlie",
+      createdAt: 3000,
+      updatedAt: 3000,
+    });
+    await seedAndTrack({
+      id: "bm-sort-c",
+      url: "https://c.example.com",
+      userId: TEST_USER_ID,
+      title: "Bravo",
+      createdAt: 2000,
+      updatedAt: 4000,
+    });
+
+    const newest = await app.request("/api/bookmarks", undefined, env as any);
+    expect(((await newest.json()) as any).bookmarks.map((b: any) => b.id)).toEqual([
+      "bm-sort-b",
+      "bm-sort-c",
+      "bm-sort-a",
+    ]);
+
+    const oldest = await app.request("/api/bookmarks?sort=oldest", undefined, env as any);
+    expect(((await oldest.json()) as any).bookmarks.map((b: any) => b.id)).toEqual([
+      "bm-sort-a",
+      "bm-sort-c",
+      "bm-sort-b",
+    ]);
+
+    const title = await app.request("/api/bookmarks?sort=title", undefined, env as any);
+    expect(((await title.json()) as any).bookmarks.map((b: any) => b.title)).toEqual([
+      "Alpha",
+      "Bravo",
+      "Charlie",
+    ]);
+
+    const titleDesc = await app.request("/api/bookmarks?sort=title_desc", undefined, env as any);
+    expect(((await titleDesc.json()) as any).bookmarks.map((b: any) => b.title)).toEqual([
+      "Charlie",
+      "Bravo",
+      "Alpha",
+    ]);
+
+    const updated = await app.request("/api/bookmarks?sort=updated", undefined, env as any);
+    expect(((await updated.json()) as any).bookmarks.map((b: any) => b.id)).toEqual([
+      "bm-sort-a",
+      "bm-sort-c",
+      "bm-sort-b",
+    ]);
+  });
 });
 
 // ──────────────────────────────────────────────
