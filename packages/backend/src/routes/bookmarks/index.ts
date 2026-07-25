@@ -1,6 +1,6 @@
 import { OpenAPIHono } from "@hono/zod-openapi";
 import { v7 as uuidv7 } from "uuid";
-import { and, desc, eq, inArray, like, or } from "drizzle-orm";
+import { and, desc, eq, inArray, like, or, sql } from "drizzle-orm";
 
 import type { Auth } from "../../lib/auth";
 import { createDrizzle } from "../../db";
@@ -110,16 +110,24 @@ bookmarks.openapi(listBookmarksRoute, async (c) => {
     conditions.push(inArray(bookmark.id, taggedIds));
   }
 
+  const where = and(...conditions);
+
+  const [countRow] = await db
+    .select({ total: sql<number>`count(*)`.mapWith(Number) })
+    .from(bookmark)
+    .where(where);
+  const total = countRow?.total ?? 0;
+
   const rows = await db
     .select()
     .from(bookmark)
-    .where(and(...conditions))
+    .where(where)
     .orderBy(desc(bookmark.createdAt))
     .limit(limit)
     .offset(offset);
 
   const withTags = await attachTagsToBookmarks(db, rows);
-  return c.json(withTags, 200);
+  return c.json({ bookmarks: withTags, total, limit, offset }, 200);
 });
 
 // GET /:id — get a single bookmark

@@ -93,11 +93,11 @@ describe("POST /api/bookmarks", () => {
 // ──────────────────────────────────────────────
 
 describe("GET /api/bookmarks", () => {
-  it("returns empty array when no bookmarks", async () => {
+  it("returns empty list with total 0 when no bookmarks", async () => {
     const res = await app.request("/api/bookmarks", undefined, env as any);
     expect(res.status).toBe(200);
     const body: any = await res.json();
-    expect(body).toEqual([]);
+    expect(body).toEqual({ bookmarks: [], total: 0, limit: 50, offset: 0 });
   });
 
   it("returns only the authenticated user's bookmarks", async () => {
@@ -115,10 +115,31 @@ describe("GET /api/bookmarks", () => {
     const res = await app.request("/api/bookmarks", undefined, env as any);
     expect(res.status).toBe(200);
     const body: any = await res.json();
-    expect(body).toHaveLength(1);
-    expect(body[0].id).toBe("bm-own-001");
-    expect(body[0].userId).toBe(TEST_USER_ID);
-    expect(body[0].tags).toEqual([]);
+    expect(body.total).toBe(1);
+    expect(body.limit).toBe(50);
+    expect(body.offset).toBe(0);
+    expect(body.bookmarks).toHaveLength(1);
+    expect(body.bookmarks[0].id).toBe("bm-own-001");
+    expect(body.bookmarks[0].userId).toBe(TEST_USER_ID);
+    expect(body.bookmarks[0].tags).toEqual([]);
+  });
+
+  it("returns total count across pages", async () => {
+    for (let i = 0; i < 3; i++) {
+      await seedAndTrack({
+        id: `bm-page-${i}`,
+        url: `https://page${i}.example.com`,
+        userId: TEST_USER_ID,
+      });
+    }
+
+    const res = await app.request("/api/bookmarks?limit=1&offset=1", undefined, env as any);
+    expect(res.status).toBe(200);
+    const body: any = await res.json();
+    expect(body.total).toBe(3);
+    expect(body.limit).toBe(1);
+    expect(body.offset).toBe(1);
+    expect(body.bookmarks).toHaveLength(1);
   });
 });
 

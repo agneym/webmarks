@@ -1,5 +1,5 @@
 import { createRoute, z } from "@hono/zod-openapi";
-import { BookmarkSchema } from "./schemas";
+import { BookmarkListResponseSchema } from "./schemas";
 
 // --- Schema ---
 
@@ -38,10 +38,10 @@ export const listBookmarksRoute = createRoute({
     200: {
       content: {
         "application/json": {
-          schema: z.array(BookmarkSchema),
+          schema: BookmarkListResponseSchema,
         },
       },
-      description: "List of bookmarks (newest first)",
+      description: "Paginated list of bookmarks (newest first) with total matching count",
     },
   },
 });

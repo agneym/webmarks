@@ -268,10 +268,11 @@ describe("GET /api/bookmarks?tag=...", () => {
     const res = await app.request("/api/bookmarks?tag=work", undefined, env as any);
     expect(res.status).toBe(200);
     const body: any = await res.json();
-    expect(body).toHaveLength(1);
-    expect(body[0].id).toBe(bm1);
-    expect(body[0].title).toBe("Work bookmark");
-    expect(body[0].tags).toEqual([{ id: "tag-work", name: "work" }]);
+    expect(body.total).toBe(1);
+    expect(body.bookmarks).toHaveLength(1);
+    expect(body.bookmarks[0].id).toBe(bm1);
+    expect(body.bookmarks[0].title).toBe("Work bookmark");
+    expect(body.bookmarks[0].tags).toEqual([{ id: "tag-work", name: "work" }]);
   });
 });
 
@@ -303,9 +304,10 @@ describe("embedded tags on bookmark responses", () => {
 
     const listRes = await app.request("/api/bookmarks", undefined, env as any);
     expect(listRes.status).toBe(200);
-    const list: any = await listRes.json();
-    const tagged = list.find((b: any) => b.id === bm1);
-    const untagged = list.find((b: any) => b.id === bm2);
+    const listBody: any = await listRes.json();
+    expect(listBody.total).toBe(2);
+    const tagged = listBody.bookmarks.find((b: any) => b.id === bm1);
+    const untagged = listBody.bookmarks.find((b: any) => b.id === bm2);
     expect(tagged.tags.map((t: any) => t.name).toSorted()).toEqual(["Harnesses", "OSS"]);
     expect(untagged.tags).toEqual([]);
 
@@ -341,8 +343,9 @@ describe("GET /api/bookmarks?q=...", () => {
     const res = await app.request("/api/bookmarks?q=React", undefined, env as any);
     expect(res.status).toBe(200);
     const body: any = await res.json();
-    expect(body).toHaveLength(1);
-    expect(body[0].title).toBe("React Docs");
+    expect(body.total).toBe(1);
+    expect(body.bookmarks).toHaveLength(1);
+    expect(body.bookmarks[0].title).toBe("React Docs");
   });
 
   it("searches bookmarks by URL", async () => {
@@ -357,15 +360,17 @@ describe("GET /api/bookmarks?q=...", () => {
     const res = await app.request("/api/bookmarks?q=reactjs", undefined, env as any);
     expect(res.status).toBe(200);
     const body: any = await res.json();
-    expect(body).toHaveLength(1);
-    expect(body[0].url).toBe("https://reactjs.org");
+    expect(body.total).toBe(1);
+    expect(body.bookmarks).toHaveLength(1);
+    expect(body.bookmarks[0].url).toBe("https://reactjs.org");
   });
 
   it("returns empty when no match", async () => {
     const res = await app.request("/api/bookmarks?q=zzzzz_nonexistent", undefined, env as any);
     expect(res.status).toBe(200);
     const body: any = await res.json();
-    expect(body).toEqual([]);
+    expect(body.bookmarks).toEqual([]);
+    expect(body.total).toBe(0);
   });
 });
 
@@ -394,7 +399,8 @@ describe("GET /api/bookmarks?fetchStatus=...", () => {
     const res = await app.request("/api/bookmarks?fetchStatus=pending", undefined, env as any);
     expect(res.status).toBe(200);
     const body: any = await res.json();
-    expect(body).toHaveLength(1);
-    expect(body[0].id).toBe(bm2);
+    expect(body.total).toBe(1);
+    expect(body.bookmarks).toHaveLength(1);
+    expect(body.bookmarks[0].id).toBe(bm2);
   });
 });

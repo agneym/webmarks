@@ -20,9 +20,7 @@ export const BookmarkSchema = z
       .enum(["pending", "success", "failed"])
       .optional()
       .openapi({ example: "pending" }),
-    tags: z
-      .array(TagSchema)
-      .openapi({ example: [{ id: "tag_abc123", name: "work" }] }),
+    tags: z.array(TagSchema).openapi({ example: [{ id: "tag_abc123", name: "work" }] }),
   })
   .openapi("Bookmark");
 
@@ -33,6 +31,15 @@ export const TagWithCountSchema = z
     bookmarkCount: z.number().openapi({ example: 12 }),
   })
   .openapi("TagWithCount");
+
+export const BookmarkListResponseSchema = z
+  .object({
+    bookmarks: z.array(BookmarkSchema),
+    total: z.number().int().nonnegative().openapi({ example: 225 }),
+    limit: z.number().int().positive().openapi({ example: 50 }),
+    offset: z.number().int().nonnegative().openapi({ example: 0 }),
+  })
+  .openapi("BookmarkListResponse");
 
 export const BookmarkIdParamSchema = z.object({
   id: z.string().openapi({ example: "550e8400-e29b-41d4-a716-446655440000" }),
