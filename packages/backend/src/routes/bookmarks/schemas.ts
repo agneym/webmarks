@@ -1,5 +1,12 @@
 import { z } from "@hono/zod-openapi";
 
+export const TagSchema = z
+  .object({
+    id: z.string().openapi({ example: "tag_abc123" }),
+    name: z.string().openapi({ example: "work" }),
+  })
+  .openapi("Tag");
+
 export const BookmarkSchema = z
   .object({
     id: z.uuid().openapi({ example: "550e8400-e29b-41d4-a716-446655440000" }),
@@ -13,15 +20,11 @@ export const BookmarkSchema = z
       .enum(["pending", "success", "failed"])
       .optional()
       .openapi({ example: "pending" }),
+    tags: z
+      .array(TagSchema)
+      .openapi({ example: [{ id: "tag_abc123", name: "work" }] }),
   })
   .openapi("Bookmark");
-
-export const TagSchema = z
-  .object({
-    id: z.string().openapi({ example: "tag_abc123" }),
-    name: z.string().openapi({ example: "work" }),
-  })
-  .openapi("Tag");
 
 export const TagWithCountSchema = z
   .object({

@@ -271,6 +271,48 @@ describe("GET /api/bookmarks?tag=...", () => {
     expect(body).toHaveLength(1);
     expect(body[0].id).toBe(bm1);
     expect(body[0].title).toBe("Work bookmark");
+    expect(body[0].tags).toEqual([{ id: "tag-work", name: "work" }]);
+  });
+});
+
+// ──────────────────────────────────────────────
+// GET /api/bookmarks & GET /api/bookmarks/:id — embedded tags
+// ──────────────────────────────────────────────
+
+describe("embedded tags on bookmark responses", () => {
+  it("includes tags on list and get", async () => {
+    const bm1 = "bm-embed-001";
+    const bm2 = "bm-embed-002";
+    await seedBookmark(env as any, {
+      id: bm1,
+      url: "https://embed1.example.com",
+      userId: TEST_USER_ID,
+      title: "Tagged",
+    });
+    await seedBookmark(env as any, {
+      id: bm2,
+      url: "https://embed2.example.com",
+      userId: TEST_USER_ID,
+      title: "Untagged",
+    });
+    await seedTag(env as any, { id: "tag-oss", name: "OSS", userId: TEST_USER_ID });
+    await seedTag(env as any, { id: "tag-harness", name: "Harnesses", userId: TEST_USER_ID });
+    await seedBookmarkTag(env as any, { bookmarkId: bm1, tagId: "tag-oss" });
+    await seedBookmarkTag(env as any, { bookmarkId: bm1, tagId: "tag-harness" });
+    seededIds.push(bm1, bm2);
+
+    const listRes = await app.request("/api/bookmarks", undefined, env as any);
+    expect(listRes.status).toBe(200);
+    const list: any = await listRes.json();
+    const tagged = list.find((b: any) => b.id === bm1);
+    const untagged = list.find((b: any) => b.id === bm2);
+    expect(tagged.tags.map((t: any) => t.name).toSorted()).toEqual(["Harnesses", "OSS"]);
+    expect(untagged.tags).toEqual([]);
+
+    const getRes = await app.request(`/api/bookmarks/${bm1}`, undefined, env as any);
+    expect(getRes.status).toBe(200);
+    const single: any = await getRes.json();
+    expect(single.tags.map((t: any) => t.name).toSorted()).toEqual(["Harnesses", "OSS"]);
   });
 });
 

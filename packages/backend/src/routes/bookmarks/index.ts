@@ -13,6 +13,7 @@ import { getBookmarkRoute } from "./get";
 import { updateBookmarkRoute } from "./update";
 import { deleteBookmarkRoute } from "./delete";
 import { setBookmarkTagsRoute, getBookmarkTagsRoute } from "./tags";
+import { attachTagsToBookmarks } from "./attach-tags";
 
 type Bindings = CloudflareBindings;
 type Variables = { auth: Auth; logger: import("pino").Logger; userId: string };
@@ -117,7 +118,8 @@ bookmarks.openapi(listBookmarksRoute, async (c) => {
     .limit(limit)
     .offset(offset);
 
-  return c.json(rows, 200);
+  const withTags = await attachTagsToBookmarks(db, rows);
+  return c.json(withTags, 200);
 });
 
 // GET /:id — get a single bookmark
@@ -135,7 +137,9 @@ bookmarks.openapi(getBookmarkRoute, async (c) => {
   if (!row) {
     return c.json({ error: "Bookmark not found" }, 404);
   }
-  return c.json(row, 200);
+
+  const [withTags] = await attachTagsToBookmarks(db, [row]);
+  return c.json(withTags, 200);
 });
 
 // PATCH /:id — update title/description

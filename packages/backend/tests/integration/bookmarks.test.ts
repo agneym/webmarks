@@ -118,6 +118,7 @@ describe("GET /api/bookmarks", () => {
     expect(body).toHaveLength(1);
     expect(body[0].id).toBe("bm-own-001");
     expect(body[0].userId).toBe(TEST_USER_ID);
+    expect(body[0].tags).toEqual([]);
   });
 });
 
@@ -140,6 +141,7 @@ describe("GET /api/bookmarks/:id", () => {
     expect(body.id).toBe("bm-single-001");
     expect(body.url).toBe("https://single.example.com");
     expect(body.title).toBe("My Bookmark");
+    expect(body.tags).toEqual([]);
   });
 
   it("returns 404 for non-existent bookmark", async () => {
