@@ -65,8 +65,10 @@ bookmarks.openapi(createBookmarkRoute, async (c) => {
   // Enqueue background metadata fetch
   await c.env.BOOKMARK_QUEUE.send({ bookmarkId: id, url });
 
+  const [withTags] = await attachTagsToBookmarks(db, [row]);
+
   c.var.logger.info({ id, userId, url }, "bookmark created");
-  return c.json(row, 201);
+  return c.json(withTags, 201);
 });
 
 // GET / — list user's bookmarks (newest first, with pagination + filters)
@@ -193,8 +195,10 @@ bookmarks.openapi(updateBookmarkRoute, async (c) => {
     return c.json({ error: "Bookmark not found" }, 404);
   }
 
+  const [withTags] = await attachTagsToBookmarks(db, [row]);
+
   c.var.logger.info({ id, userId }, "bookmark updated");
-  return c.json(row, 200);
+  return c.json(withTags, 200);
 });
 
 // DELETE /:id — delete a bookmark

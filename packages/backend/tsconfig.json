@@ -8,6 +8,9 @@
     "lib": ["ESNext"],
     "jsx": "react-jsx",
     "jsxImportSource": "hono/jsx",
-    "types": ["@cloudflare/vitest-pool-workers"]
+    "types": [
+      "@cloudflare/vitest-pool-workers",
+      "@cloudflare/vitest-pool-workers/types"
+    ]
   }
 }
