@@ -12,6 +12,6 @@ description: Create a git commit and push
 
 ## Your task
 
-Based on the above changes, create a single git commit.
+Based on the above changes, create one or more git commits as appropriate.
 
-You have the capability to call multiple tools in a single response. Stage, create the commit, and push using a single message. Do not use any other tools or do anything else.
+You have the capability to call multiple tools in a single response. Stage, create the commits, and push. Do not use any other tools or do anything else.
