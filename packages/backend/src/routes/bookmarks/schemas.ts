@@ -20,12 +20,10 @@ export const BookmarkSchema = z
       .enum(["pending", "success", "failed"])
       .optional()
       .openapi({ example: "pending" }),
-    visibility: z
-      .enum(["public", "private"])
-      .openapi({
-        example: "public",
-        description: "public = anyone can view; private = owner only",
-      }),
+    visibility: z.enum(["public", "private"]).openapi({
+      example: "public",
+      description: "public = anyone can view; private = owner only",
+    }),
     tags: z.array(TagSchema).openapi({ example: [{ id: "tag_abc123", name: "work" }] }),
   })
   .openapi("Bookmark");
