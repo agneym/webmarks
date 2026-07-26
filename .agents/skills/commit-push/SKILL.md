@@ -14,4 +14,4 @@ description: Create a git commit and push
 
 Based on the above changes, create a single git commit.
 
-You have the capability to call multiple tools in a single response. Stage, create the commit, and push using a single message. Do not use any other tools or do anything else. Do not send any other text or messages besides these tool calls.
+You have the capability to call multiple tools in a single response. Stage, create the commit, and push using a single message. Do not use any other tools or do anything else.
