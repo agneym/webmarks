@@ -22,7 +22,10 @@ export const BookmarkSchema = z
       .openapi({ example: "pending" }),
     visibility: z
       .enum(["public", "private"])
-      .openapi({ example: "public", description: "public = anyone can view; private = owner only" }),
+      .openapi({
+        example: "public",
+        description: "public = anyone can view; private = owner only",
+      }),
     tags: z.array(TagSchema).openapi({ example: [{ id: "tag_abc123", name: "work" }] }),
   })
   .openapi("Bookmark");

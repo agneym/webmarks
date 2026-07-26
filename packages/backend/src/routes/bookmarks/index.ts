@@ -132,9 +132,7 @@ bookmarks.openapi(listBookmarksRoute, async (c) => {
       .from(bookmarkTag)
       .innerJoin(tag, eq(bookmarkTag.tagId, tag.id))
       .where(
-        userId
-          ? and(eq(tag.userId, userId), eq(tag.name, tagFilter))
-          : eq(tag.name, tagFilter),
+        userId ? and(eq(tag.userId, userId), eq(tag.name, tagFilter)) : eq(tag.name, tagFilter),
       );
     conditions.push(inArray(bookmark.id, taggedIds));
   }

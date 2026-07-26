@@ -6,13 +6,10 @@ import { BookmarkSchema, ErrorSchema } from "./schemas";
 const CreateBookmarkBodySchema = z
   .object({
     url: z.url().openapi({ example: "https://example.com" }),
-    visibility: z
-      .enum(["public", "private"])
-      .optional()
-      .openapi({
-        example: "public",
-        description: "Defaults to public when omitted",
-      }),
+    visibility: z.enum(["public", "private"]).optional().openapi({
+      example: "public",
+      description: "Defaults to public when omitted",
+    }),
   })
   .openapi("CreateBookmark");
 
