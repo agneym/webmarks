@@ -52,10 +52,28 @@ describe("POST /api/bookmarks", () => {
       userId: TEST_USER_ID,
       url: "https://example.com",
       fetchStatus: "pending",
+      visibility: "public",
     });
     expect(body.id).toBeDefined();
 
     // Track for cleanup
+    seededIds.push(body.id);
+  });
+
+  it("creates a private bookmark when visibility is set", async () => {
+    const res = await app.request(
+      "/api/bookmarks",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: "https://private-create.example.com", visibility: "private" }),
+      },
+      env as any,
+    );
+
+    expect(res.status).toBe(201);
+    const body: any = await res.json();
+    expect(body.visibility).toBe("private");
     seededIds.push(body.id);
   });
 
@@ -122,6 +140,29 @@ describe("GET /api/bookmarks", () => {
     expect(body.bookmarks[0].id).toBe("bm-own-001");
     expect(body.bookmarks[0].userId).toBe(TEST_USER_ID);
     expect(body.bookmarks[0].tags).toEqual([]);
+  });
+
+  it("filters by visibility for the authenticated user", async () => {
+    await seedAndTrack({
+      id: "bm-vis-pub",
+      url: "https://vis-pub.example.com",
+      userId: TEST_USER_ID,
+      visibility: "public",
+    });
+    await seedAndTrack({
+      id: "bm-vis-priv",
+      url: "https://vis-priv.example.com",
+      userId: TEST_USER_ID,
+      visibility: "private",
+    });
+
+    const pub = await app.request("/api/bookmarks?visibility=public", undefined, env as any);
+    const pubBody: any = await pub.json();
+    expect(pubBody.bookmarks.map((b: any) => b.id)).toEqual(["bm-vis-pub"]);
+
+    const priv = await app.request("/api/bookmarks?visibility=private", undefined, env as any);
+    const privBody: any = await priv.json();
+    expect(privBody.bookmarks.map((b: any) => b.id)).toEqual(["bm-vis-priv"]);
   });
 
   it("returns total count across pages", async () => {
@@ -234,14 +275,29 @@ describe("GET /api/bookmarks/:id", () => {
     expect(body.error).toMatch(/not found/i);
   });
 
-  it("returns 404 for bookmark belonging to another user", async () => {
+  it("returns a public bookmark even if it belongs to another user", async () => {
     await seedAndTrack({
       id: "bm-foreign-001",
       url: "https://foreign.example.com",
       userId: "other-user",
+      visibility: "public",
     });
 
     const res = await app.request("/api/bookmarks/bm-foreign-001", undefined, env as any);
+    expect(res.status).toBe(200);
+    const body: any = await res.json();
+    expect(body.id).toBe("bm-foreign-001");
+  });
+
+  it("returns 404 for another user's private bookmark", async () => {
+    await seedAndTrack({
+      id: "bm-foreign-priv-001",
+      url: "https://foreign-private.example.com",
+      userId: "other-user",
+      visibility: "private",
+    });
+
+    const res = await app.request("/api/bookmarks/bm-foreign-priv-001", undefined, env as any);
     expect(res.status).toBe(404);
   });
 });
@@ -275,6 +331,29 @@ describe("PATCH /api/bookmarks/:id", () => {
     const body: any = await res.json();
     expect(body.title).toBe("Updated Title");
     expect(body.description).toBe("Updated description");
+  });
+
+  it("updates visibility", async () => {
+    await seedAndTrack({
+      id: "bm-update-vis-001",
+      url: "https://update-vis.example.com",
+      userId: TEST_USER_ID,
+      visibility: "public",
+    });
+
+    const res = await app.request(
+      "/api/bookmarks/bm-update-vis-001",
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ visibility: "private" }),
+      },
+      env as any,
+    );
+
+    expect(res.status).toBe(200);
+    const body: any = await res.json();
+    expect(body.visibility).toBe("private");
   });
 
   it("returns 400 when no fields provided", async () => {

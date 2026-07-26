@@ -9,3 +9,6 @@ GOOGLE_CLIENT_ID=your-google-client-id
 GOOGLE_CLIENT_SECRET=your-google-client-secret
 
 WEB_APP_URL=http://localhost:3000
+
+# Only this email may sign up / sign in (personal site owner)
+OWNER_EMAIL=you@example.com

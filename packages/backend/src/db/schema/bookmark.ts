@@ -19,9 +19,16 @@ export const bookmark = sqliteTable(
     fetchStatus: text("fetch_status", { enum: ["pending", "success", "failed"] })
       .default("pending")
       .notNull(),
+    /** Public bookmarks are visible to anyone; private only to the owner. Defaults to public. */
+    visibility: text("visibility", { enum: ["public", "private"] })
+      .default("public")
+      .notNull(),
     ...timestamps,
   },
-  (table) => [index("bookmark_userId_idx").on(table.userId)],
+  (table) => [
+    index("bookmark_userId_idx").on(table.userId),
+    index("bookmark_visibility_idx").on(table.visibility),
+  ],
 );
 
 export const bookmarkRelations = relations(bookmark, ({ many, one }) => ({

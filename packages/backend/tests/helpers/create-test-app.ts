@@ -4,27 +4,42 @@ import tags from "../../src/routes/tags";
 
 const TEST_USER_ID = "test-user-001";
 
+type SessionUser = {
+  id: string;
+  name: string;
+  email: string;
+} | null;
+
 /**
- * Creates a Hono app with bookmark + tag routes, auth bypassed.
+ * Creates a Hono app with bookmark + tag routes.
  *
- * The sub-routers call `c.var.auth.api.getSession()` internally,
- * so we inject a mock `auth` object that always returns a valid session.
- * No real Better Auth instance or session cookie needed.
+ * By default auth is bypassed with a valid session for TEST_USER_ID.
+ * Pass `{ authenticated: false }` to simulate a public (logged-out) client.
  */
-export function createTestApp() {
+export function createTestApp(opts?: { authenticated?: boolean; userId?: string }) {
+  const authenticated = opts?.authenticated !== false;
+  const userId = opts?.userId ?? TEST_USER_ID;
+
   const app = new Hono();
+
+  const sessionUser: SessionUser = authenticated
+    ? {
+        id: userId,
+        name: "Test User",
+        email: "test@example.com",
+      }
+    : null;
 
   const mockAuthMiddleware = async (c: any, next: () => Promise<void>) => {
     c.set("auth", {
       api: {
-        getSession: async () => ({
-          user: {
-            id: TEST_USER_ID,
-            name: "Test User",
-            email: "test@example.com",
-          },
-          session: { id: "test-session" },
-        }),
+        getSession: async () =>
+          sessionUser
+            ? {
+                user: sessionUser,
+                session: { id: "test-session" },
+              }
+            : null,
       },
       handler: async (_req: Request) => new Response("auth handler"),
     });

@@ -7,6 +7,10 @@ const UpdateBookmarkBodySchema = z
   .object({
     title: z.string().optional().openapi({ example: "Updated title" }),
     description: z.string().optional().openapi({ example: "Updated description" }),
+    visibility: z
+      .enum(["public", "private"])
+      .optional()
+      .openapi({ example: "private", description: "Change public/private visibility" }),
   })
   .openapi("UpdateBookmark");
 
@@ -41,6 +45,14 @@ export const updateBookmarkRoute = createRoute({
         },
       },
       description: "Invalid request",
+    },
+    401: {
+      content: {
+        "application/json": {
+          schema: ErrorSchema,
+        },
+      },
+      description: "Unauthorized",
     },
     404: {
       content: {

@@ -1,26 +1,27 @@
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
-import { eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 
 import type { Auth } from "../../lib/auth";
 import { createDrizzle } from "../../db";
-import { tag, bookmarkTag } from "../../db/schema";
+import { bookmark, tag, bookmarkTag } from "../../db/schema";
 import { TagWithCountSchema, ErrorSchema } from "../bookmarks/schemas";
 
 type Bindings = CloudflareBindings;
-type Variables = { auth: Auth; logger: import("pino").Logger; userId: string };
+type Variables = { auth: Auth; logger: import("pino").Logger; userId?: string };
 
 const tags = new OpenAPIHono<{ Bindings: Bindings; Variables: Variables }>();
 
-// ── Auth middleware ─────────────────────────────────────────────────────
+// ── Optional auth ───────────────────────────────────────────────────────
+// Unauthenticated callers see tags on public bookmarks only.
+// Authenticated callers see their full tag list.
 
 tags.use("*", async (c, next) => {
   const session = await c.var.auth.api.getSession({
     headers: c.req.raw.headers,
   });
-  if (!session) {
-    return c.json({ error: "Unauthorized" }, 401);
+  if (session) {
+    c.set("userId", session.user.id);
   }
-  c.set("userId", session.user.id);
   await next();
 });
 
@@ -36,7 +37,8 @@ const listTagsRoute = createRoute({
           schema: z.object({ tags: z.array(TagWithCountSchema) }),
         },
       },
-      description: "List of user's tags with bookmark counts (alphabetical)",
+      description:
+        "List of tags with bookmark counts. Public callers only see tags on public bookmarks.",
     },
     401: {
       content: {
@@ -51,11 +53,37 @@ const listTagsRoute = createRoute({
 
 // ── Handlers ───────────────────────────────────────────────────────────
 
-// GET / — list all tags for the user with bookmark counts
+// GET / — list tags with bookmark counts
 tags.openapi(listTagsRoute, async (c) => {
   const userId = c.get("userId");
   const db = createDrizzle(c.env.webmarks);
 
+  if (userId) {
+    const rows = await db
+      .select({
+        id: tag.id,
+        name: tag.name,
+        bookmarkCount: sql<number>`COUNT(${bookmarkTag.bookmarkId})`.mapWith(Number),
+      })
+      .from(tag)
+      .leftJoin(bookmarkTag, eq(tag.id, bookmarkTag.tagId))
+      .where(eq(tag.userId, userId))
+      .groupBy(tag.id)
+      .orderBy(sql`${tag.name} ASC`);
+
+    return c.json(
+      {
+        tags: rows.map((r) => ({
+          id: r.id,
+          name: r.name,
+          bookmarkCount: r.bookmarkCount,
+        })),
+      },
+      200,
+    );
+  }
+
+  // Public: only tags attached to at least one public bookmark; count public only
   const rows = await db
     .select({
       id: tag.id,
@@ -63,8 +91,11 @@ tags.openapi(listTagsRoute, async (c) => {
       bookmarkCount: sql<number>`COUNT(${bookmarkTag.bookmarkId})`.mapWith(Number),
     })
     .from(tag)
-    .leftJoin(bookmarkTag, eq(tag.id, bookmarkTag.tagId))
-    .where(eq(tag.userId, userId))
+    .innerJoin(bookmarkTag, eq(tag.id, bookmarkTag.tagId))
+    .innerJoin(
+      bookmark,
+      and(eq(bookmarkTag.bookmarkId, bookmark.id), eq(bookmark.visibility, "public")),
+    )
     .groupBy(tag.id)
     .orderBy(sql`${tag.name} ASC`);
 

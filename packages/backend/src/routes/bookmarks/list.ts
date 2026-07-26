@@ -24,6 +24,11 @@ const PaginationQuerySchema = z.object({
     .enum(["pending", "success", "failed"])
     .optional()
     .openapi({ example: "pending", description: "Filter by metadata fetch status" }),
+  visibility: z.enum(["public", "private"]).optional().openapi({
+    example: "public",
+    description:
+      "Filter by visibility (authenticated only). Unauthenticated requests always see public bookmarks",
+  }),
   sort: z.enum(["newest", "oldest", "title", "title_desc", "updated"]).optional().openapi({
     example: "newest",
     description:

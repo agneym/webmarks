@@ -45,6 +45,7 @@ export async function seedBookmark(
     userId: string;
     title?: string;
     fetchStatus?: string;
+    visibility?: "public" | "private";
     createdAt?: number;
     updatedAt?: number;
   },
@@ -54,7 +55,7 @@ export async function seedBookmark(
   const updatedAt = opts.updatedAt ?? createdAt;
   await env.webmarks
     .prepare(
-      "INSERT INTO bookmark (id, url, user_id, title, fetch_status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "INSERT INTO bookmark (id, url, user_id, title, fetch_status, visibility, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
     )
     .bind(
       opts.id,
@@ -62,6 +63,7 @@ export async function seedBookmark(
       opts.userId,
       opts.title ?? null,
       opts.fetchStatus ?? "pending",
+      opts.visibility ?? "public",
       createdAt,
       updatedAt,
     )

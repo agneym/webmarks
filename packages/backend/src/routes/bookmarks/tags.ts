@@ -53,6 +53,14 @@ export const setBookmarkTagsRoute = createRoute({
       },
       description: "Invalid request",
     },
+    401: {
+      content: {
+        "application/json": {
+          schema: ErrorSchema,
+        },
+      },
+      description: "Unauthorized",
+    },
     404: {
       content: {
         "application/json": {

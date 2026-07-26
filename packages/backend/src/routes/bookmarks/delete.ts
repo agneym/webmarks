@@ -18,6 +18,14 @@ export const deleteBookmarkRoute = createRoute({
       },
       description: "Bookmark deleted",
     },
+    401: {
+      content: {
+        "application/json": {
+          schema: ErrorSchema,
+        },
+      },
+      description: "Unauthorized",
+    },
     404: {
       content: {
         "application/json": {

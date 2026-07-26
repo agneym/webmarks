@@ -9,7 +9,7 @@ import { handleQueue, type QueueMessage } from "./queue-consumer";
 
 const app = new Hono<{
   Bindings: CloudflareBindings;
-  Variables: { auth: Auth; logger: import("pino").Logger; userId: string };
+  Variables: { auth: Auth; logger: import("pino").Logger; userId?: string };
 }>();
 
 // --- Global middleware ---

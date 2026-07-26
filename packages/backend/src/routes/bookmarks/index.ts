@@ -16,20 +16,19 @@ import { setBookmarkTagsRoute, getBookmarkTagsRoute } from "./tags";
 import { attachTagsToBookmarks } from "./attach-tags";
 
 type Bindings = CloudflareBindings;
-type Variables = { auth: Auth; logger: import("pino").Logger; userId: string };
+type Variables = { auth: Auth; logger: import("pino").Logger; userId?: string };
 
 const bookmarks = new OpenAPIHono<{ Bindings: Bindings; Variables: Variables }>();
 
-// --- Auth middleware (applies to all bookmark routes) ---
+// --- Optional auth (public can read; mutations require a session) ---
 
 bookmarks.use("*", async (c, next) => {
   const session = await c.var.auth.api.getSession({
     headers: c.req.raw.headers,
   });
-  if (!session) {
-    return c.json({ error: "Unauthorized" }, 401);
+  if (session) {
+    c.set("userId", session.user.id);
   }
-  c.set("userId", session.user.id);
   await next();
 });
 
@@ -37,8 +36,12 @@ bookmarks.use("*", async (c, next) => {
 
 // POST / — create a bookmark (enqueues background metadata fetch)
 bookmarks.openapi(createBookmarkRoute, async (c) => {
-  const { url } = c.req.valid("json");
   const userId = c.get("userId");
+  if (!userId) {
+    return c.json({ error: "Unauthorized" }, 401);
+  }
+
+  const { url, visibility } = c.req.valid("json");
   const id = uuidv7();
   const db = createDrizzle(c.env.webmarks);
 
@@ -55,7 +58,13 @@ bookmarks.openapi(createBookmarkRoute, async (c) => {
 
   const [row] = await db
     .insert(bookmark)
-    .values({ id, userId, url, fetchStatus: "pending" })
+    .values({
+      id,
+      userId,
+      url,
+      fetchStatus: "pending",
+      visibility: visibility ?? "public",
+    })
     .returning();
 
   if (!row) {
@@ -67,11 +76,13 @@ bookmarks.openapi(createBookmarkRoute, async (c) => {
 
   const [withTags] = await attachTagsToBookmarks(db, [row]);
 
-  c.var.logger.info({ id, userId, url }, "bookmark created");
+  c.var.logger.info({ id, userId, url, visibility: row.visibility }, "bookmark created");
   return c.json(withTags, 201);
 });
 
-// GET / — list user's bookmarks (newest first, with pagination + filters)
+// GET / — list bookmarks
+// - Unauthenticated: public bookmarks only
+// - Authenticated: caller's bookmarks (optionally filtered by visibility)
 bookmarks.openapi(listBookmarksRoute, async (c) => {
   const userId = c.get("userId");
   const db = createDrizzle(c.env.webmarks);
@@ -81,10 +92,21 @@ bookmarks.openapi(listBookmarksRoute, async (c) => {
   const q = c.req.query("q");
   const tagFilter = c.req.query("tag");
   const fetchStatus = c.req.query("fetchStatus");
+  const visibilityFilter = c.req.query("visibility") as "public" | "private" | undefined;
   const sort = c.req.query("sort") ?? "newest";
 
   // Build WHERE conditions
-  const conditions: ReturnType<typeof eq>[] = [eq(bookmark.userId, userId)];
+  const conditions: ReturnType<typeof eq>[] = [];
+
+  if (userId) {
+    conditions.push(eq(bookmark.userId, userId));
+    if (visibilityFilter) {
+      conditions.push(eq(bookmark.visibility, visibilityFilter));
+    }
+  } else {
+    // Public feed — anyone may read public bookmarks (private filter is ignored)
+    conditions.push(eq(bookmark.visibility, "public"));
+  }
 
   // Text search across title, description, and URL
   if (q) {
@@ -109,7 +131,11 @@ bookmarks.openapi(listBookmarksRoute, async (c) => {
       .select({ bookmarkId: bookmarkTag.bookmarkId })
       .from(bookmarkTag)
       .innerJoin(tag, eq(bookmarkTag.tagId, tag.id))
-      .where(and(eq(tag.userId, userId), eq(tag.name, tagFilter)));
+      .where(
+        userId
+          ? and(eq(tag.userId, userId), eq(tag.name, tagFilter))
+          : eq(tag.name, tagFilter),
+      );
     conditions.push(inArray(bookmark.id, taggedIds));
   }
 
@@ -149,19 +175,20 @@ bookmarks.openapi(listBookmarksRoute, async (c) => {
   return c.json({ bookmarks: withTags, total, limit, offset }, 200);
 });
 
-// GET /:id — get a single bookmark
+// GET /:id — get a single bookmark (public ok; private requires owner)
 bookmarks.openapi(getBookmarkRoute, async (c) => {
   const { id } = c.req.valid("param");
   const userId = c.get("userId");
   const db = createDrizzle(c.env.webmarks);
 
-  const [row] = await db
-    .select()
-    .from(bookmark)
-    .where(and(eq(bookmark.id, id), eq(bookmark.userId, userId)))
-    .limit(1);
+  const [row] = await db.select().from(bookmark).where(eq(bookmark.id, id)).limit(1);
 
   if (!row) {
+    return c.json({ error: "Bookmark not found" }, 404);
+  }
+
+  const isOwner = userId !== undefined && row.userId === userId;
+  if (row.visibility === "private" && !isOwner) {
     return c.json({ error: "Bookmark not found" }, 404);
   }
 
@@ -169,17 +196,26 @@ bookmarks.openapi(getBookmarkRoute, async (c) => {
   return c.json(withTags, 200);
 });
 
-// PATCH /:id — update title/description
+// PATCH /:id — update title/description/visibility
 bookmarks.openapi(updateBookmarkRoute, async (c) => {
+  const userId = c.get("userId");
+  if (!userId) {
+    return c.json({ error: "Unauthorized" }, 401);
+  }
+
   const { id } = c.req.valid("param");
   const body = c.req.valid("json");
-  const userId = c.get("userId");
   const db = createDrizzle(c.env.webmarks);
 
   // Only set fields that were actually provided
-  const updates: Partial<{ title: string | null; description: string | null }> = {};
+  const updates: Partial<{
+    title: string | null;
+    description: string | null;
+    visibility: "public" | "private";
+  }> = {};
   if (body.title !== undefined) updates.title = body.title;
   if (body.description !== undefined) updates.description = body.description;
+  if (body.visibility !== undefined) updates.visibility = body.visibility;
 
   if (Object.keys(updates).length === 0) {
     return c.json({ error: "No fields to update" }, 400);
@@ -203,8 +239,12 @@ bookmarks.openapi(updateBookmarkRoute, async (c) => {
 
 // DELETE /:id — delete a bookmark
 bookmarks.openapi(deleteBookmarkRoute, async (c) => {
-  const { id } = c.req.valid("param");
   const userId = c.get("userId");
+  if (!userId) {
+    return c.json({ error: "Unauthorized" }, 401);
+  }
+
+  const { id } = c.req.valid("param");
   const db = createDrizzle(c.env.webmarks);
 
   const result = await db
@@ -224,9 +264,13 @@ bookmarks.openapi(deleteBookmarkRoute, async (c) => {
 
 // PUT /:id/tags — replace all tags for a bookmark
 bookmarks.openapi(setBookmarkTagsRoute, async (c) => {
+  const userId = c.get("userId");
+  if (!userId) {
+    return c.json({ error: "Unauthorized" }, 401);
+  }
+
   const { id } = c.req.valid("param");
   const { tags: tagNames } = c.req.valid("json");
-  const userId = c.get("userId");
   const db = createDrizzle(c.env.webmarks);
 
   // Verify bookmark exists and belongs to user
@@ -273,19 +317,23 @@ bookmarks.openapi(setBookmarkTagsRoute, async (c) => {
   return c.json({ tags: finalTags }, 200);
 });
 
-// GET /:id/tags — get tags for a bookmark
+// GET /:id/tags — get tags for a bookmark (public ok when bookmark is public)
 bookmarks.openapi(getBookmarkTagsRoute, async (c) => {
   const { id } = c.req.valid("param");
   const userId = c.get("userId");
   const db = createDrizzle(c.env.webmarks);
 
-  // Verify bookmark exists and belongs to user
   const [bm] = await db
-    .select({ id: bookmark.id })
+    .select({ id: bookmark.id, userId: bookmark.userId, visibility: bookmark.visibility })
     .from(bookmark)
-    .where(and(eq(bookmark.id, id), eq(bookmark.userId, userId)))
+    .where(eq(bookmark.id, id))
     .limit(1);
   if (!bm) {
+    return c.json({ error: "Bookmark not found" }, 404);
+  }
+
+  const isOwner = userId !== undefined && bm.userId === userId;
+  if (bm.visibility === "private" && !isOwner) {
     return c.json({ error: "Bookmark not found" }, 404);
   }
 

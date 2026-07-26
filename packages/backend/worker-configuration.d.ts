@@ -16,6 +16,7 @@ declare namespace Cloudflare {
     GOOGLE_CLIENT_ID: string;
     GOOGLE_CLIENT_SECRET: string;
     WEB_APP_URL: string;
+    OWNER_EMAIL: string;
   }
 }
 interface CloudflareBindings extends Cloudflare.Env {}
@@ -34,6 +35,7 @@ declare namespace NodeJS {
       | "GOOGLE_CLIENT_ID"
       | "GOOGLE_CLIENT_SECRET"
       | "WEB_APP_URL"
+      | "OWNER_EMAIL"
     >
   > {}
 }
