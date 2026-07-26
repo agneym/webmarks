@@ -1,11 +1,12 @@
 amends "package://github.com/jdx/hk/releases/download/v1.50.0/hk@1.50.0#/Config.pkl"
 
 hooks {
-  fix = true
   ["pre-commit"] {
+    fix = true
     steps {
       ["oxfmt"] {
-        check = "./node_modules/.bin/oxfmt --write --no-error-on-unmatched-pattern {{files}}"
+        check = "./node_modules/.bin/oxfmt --check --no-error-on-unmatched-pattern {{files}}"
+        fix = "./node_modules/.bin/oxfmt --write --no-error-on-unmatched-pattern {{files}}"
       }
       ["oxlint"] {
         check = "./node_modules/.bin/oxlint --no-error-on-unmatched-pattern {{files}}"
