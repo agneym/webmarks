@@ -6,5 +6,6 @@
  * when generating migrations.
  */
 export { user, session, account, verification } from "./auth";
+export { deviceCode } from "./device-code";
 export { bookmark } from "./bookmark";
 export { tag, bookmarkTag } from "./tag";
