@@ -1,7 +1,27 @@
 use anyhow::{anyhow, Context};
 use serde::de::DeserializeOwned;
 
-use crate::config::{Bookmark, BookmarkListResponse, Config, Tag, Visibility};
+use crate::config::{Bookmark, BookmarkListResponse, Config, FetchStatus, Tag, Visibility};
+
+/// Query-param strings for enums shared with the backend.
+impl FetchStatus {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            FetchStatus::Pending => "pending",
+            FetchStatus::Success => "success",
+            FetchStatus::Failed => "failed",
+        }
+    }
+}
+
+impl Visibility {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Visibility::Public => "public",
+            Visibility::Private => "private",
+        }
+    }
+}
 
 /// Options for listing bookmarks (mirrors backend query params).
 #[derive(Debug, Default, Clone)]
@@ -27,6 +47,33 @@ pub struct Client {
     base_url: String,
 }
 
+/// Typed error so exit-code mapping doesn't depend on message text.
+#[derive(Debug, thiserror::Error)]
+pub enum ApiError {
+    /// 401 from the API — user needs to run `webmarks login`.
+    #[error("Unauthorized (401) — run `webmarks login`")]
+    Unauthorized,
+    /// Any other non-2xx response.
+    #[error("API error {status}: {message}")]
+    Status { status: u16, message: String },
+    /// The stored session token is not a valid HTTP header value.
+    #[error(
+        "stored session token contains invalid header characters ({len} bytes); \
+         run `webmarks logout` and `webmarks login` again"
+    )]
+    InvalidToken { len: usize },
+}
+
+impl ApiError {
+    pub fn status(&self) -> Option<u16> {
+        match self {
+            ApiError::Unauthorized => Some(401),
+            ApiError::Status { status, .. } => Some(*status),
+            ApiError::InvalidToken { .. } => None,
+        }
+    }
+}
+
 /// Human-friendly error for non-2xx API responses.
 fn api_error(status: u16, body: &str) -> anyhow::Error {
     let message = serde_json::from_str::<serde_json::Value>(body)
@@ -35,9 +82,9 @@ fn api_error(status: u16, body: &str) -> anyhow::Error {
         .unwrap_or_else(|| body.to_string());
 
     if status == 401 {
-        anyhow!("Unauthorized (401) — run `webmarks login`")
+        anyhow!(ApiError::Unauthorized)
     } else {
-        anyhow!("API error {status}: {message}")
+        anyhow!(ApiError::Status { status, message })
     }
 }
 
@@ -54,23 +101,40 @@ impl Client {
     /// Build a client using base_url from the config or the default,
     /// and attaching the stored session token on every request.
     pub fn from_config(cfg: &Config) -> anyhow::Result<Self> {
-        let base_url = cfg
-            .base_url
-            .clone()
-            .or_else(|| std::env::var("WEBMARKS_BASE_URL").ok())
-            .unwrap_or_else(|| "http://localhost:8787".into());
+        let base_url = Self::resolve_base_url(cfg.base_url.as_deref())?;
+        if let Some(token) = &cfg.session_token {
+            // Fail loudly instead of silently dropping the auth header.
+            reqwest::header::HeaderValue::from_str(&format!("Bearer {token}"))
+                .map_err(|_| ApiError::InvalidToken { len: token.len() })?;
+        }
         Ok(Self::new(
             base_url.trim_end_matches('/'),
             cfg.session_token.clone(),
         ))
     }
 
+    /// Resolve base URL with precedence: explicit config value (including
+    /// the `--base-url` flag, which main.rs applies without persisting)
+    /// > `WEBMARKS_BASE_URL` env var > default localhost.
+    fn resolve_base_url(configured: Option<&str>) -> anyhow::Result<String> {
+        if let Some(url) = configured {
+            return Ok(url.to_string());
+        }
+        if let Ok(env_url) = std::env::var("WEBMARKS_BASE_URL") {
+            if !env_url.is_empty() {
+                return Ok(env_url);
+            }
+        }
+        Ok("http://localhost:8787".into())
+    }
+
     pub fn new(base_url: impl Into<String>, session_token: Option<String>) -> Self {
         let mut headers = reqwest::header::HeaderMap::new();
         if let Some(token) = session_token {
-            if let Ok(value) = reqwest::header::HeaderValue::from_str(&format!("Bearer {token}")) {
-                headers.insert(reqwest::header::AUTHORIZATION, value);
-            }
+            let value = reqwest::header::HeaderValue::from_str(&format!("Bearer {token}"))
+                .map_err(|_| ApiError::InvalidToken { len: token.len() })
+                .expect("session token must be a valid header value");
+            headers.insert(reqwest::header::AUTHORIZATION, value);
         }
         let http = reqwest::Client::builder()
             .default_headers(headers)
@@ -204,13 +268,10 @@ impl Client {
             req = req.query(&[("tag", tag)]);
         }
         if let Some(status) = opts.fetch_status {
-            req = req.query(&[(
-                "fetchStatus",
-                serde_json::to_value(status)?.as_str().unwrap(),
-            )]);
+            req = req.query(&[("fetchStatus", status.as_str())]);
         }
         if let Some(vis) = opts.visibility {
-            req = req.query(&[("visibility", serde_json::to_value(vis)?.as_str().unwrap())]);
+            req = req.query(&[("visibility", vis.as_str())]);
         }
         if let Some(sort) = &opts.sort {
             req = req.query(&[("sort", sort)]);

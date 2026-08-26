@@ -25,10 +25,19 @@ async fn run(cli: Cli) -> i32 {
 }
 
 fn exit_code_for(err: &anyhow::Error) -> i32 {
+    if err.chain().any(|cause| cause.is::<api::ApiError>()) {
+        // Typed API errors carry explicit statuses.
+        let status = err
+            .chain()
+            .find_map(|cause| cause.downcast_ref::<api::ApiError>())
+            .and_then(api::ApiError::status);
+        return match status {
+            Some(401) => 3,
+            Some(_) => 1,
+            None => 1,
+        };
+    }
     for cause in err.chain() {
-        if cause.to_string().contains("Unauthorized (401)") {
-            return 3;
-        }
         if let Some(reqwest_err) = cause.downcast_ref::<reqwest::Error>() {
             if reqwest_err.is_connect() || reqwest_err.is_timeout() {
                 return 4;
@@ -125,6 +134,7 @@ async fn cmd_login(cli: &Cli) -> anyhow::Result<()> {
         _ => unreachable!(),
     };
     let mut cfg = config::Config::load()?;
+    // Apply --base-url for this invocation only; don't persist a one-off flag.
     if let Some(base) = &cli.base_url {
         cfg.base_url = Some(base.clone());
     }
@@ -218,11 +228,14 @@ async fn cmd_update(
 
 async fn cmd_rm(cli: &Cli, cfg: &config::Config, id: &str) -> anyhow::Result<()> {
     let c = client(cli, cfg)?;
-    c.delete_bookmark(id).await?;
-    if !cli.json {
-        println!("Deleted {id}");
-    } else {
+    let ok = c.delete_bookmark(id).await?;
+    if !ok {
+        anyhow::bail!("server reported delete of {id} as not ok");
+    }
+    if cli.json {
         println!("{}", serde_json::json!({ "ok": true }));
+    } else {
+        println!("Deleted {id}");
     }
     Ok(())
 }

@@ -160,8 +160,16 @@ mod tests {
 
     #[test]
     fn save_creates_config_with_0600() {
+        // Serialize HOME mutation: cargo runs tests in parallel threads.
+        static HOME_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+        let _guard = HOME_LOCK.lock().unwrap();
+
         // Redirect HOME so we don't touch the real config dir.
-        let tmp = std::env::temp_dir().join(format!("webmarks-test-{}", std::process::id()));
+        let tmp = std::env::temp_dir().join(format!(
+            "webmarks-test-{}-{}",
+            std::process::id(),
+            std::ptr::from_ref(&_guard) as usize
+        ));
         std::fs::create_dir_all(&tmp).unwrap();
 
         let prev_home = std::env::var("HOME").ok();

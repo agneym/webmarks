@@ -4,14 +4,7 @@ use crate::config::{Bookmark, BookmarkListResponse, Tag};
 pub fn format_bookmark(b: &Bookmark) -> String {
     let id = &b.id[..8.min(b.id.len())];
     let title = b.title.clone().unwrap_or_else(|| b.url.clone());
-    let status = b
-        .fetch_status
-        .map(|s| match s {
-            crate::config::FetchStatus::Pending => "pending",
-            crate::config::FetchStatus::Success => "success",
-            crate::config::FetchStatus::Failed => "failed",
-        })
-        .unwrap_or("-");
+    let status = b.fetch_status.map(|s| s.as_str()).unwrap_or("-");
     let tags = join_names_or_none(&b.tags);
     format!(
         "{id}  {:<30} [{status}] {} ({})",
@@ -19,19 +12,6 @@ pub fn format_bookmark(b: &Bookmark) -> String {
         tags,
         b.visibility.as_str()
     )
-}
-
-impl VisibilityExt for crate::config::Visibility {
-    fn as_str(&self) -> &'static str {
-        match self {
-            crate::config::Visibility::Public => "public",
-            crate::config::Visibility::Private => "private",
-        }
-    }
-}
-
-pub trait VisibilityExt {
-    fn as_str(&self) -> &'static str;
 }
 
 /// Table render of a bookmark list response.
