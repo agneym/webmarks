@@ -42,12 +42,12 @@ every subsequent request
 
 ### Why this beats the alternatives
 
-| Option | Verdict |
-|---|---|
-| Cookie jar in CLI (replicate browser flow) | Fragile: must re-sign the HMAC'd cookie value with BETTER_AUTH_SECRET or capture set-cookies on every request; pointless when bearer() exists. ❌ |
+| Option                                           | Verdict                                                                                                                                                  |
+| ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Cookie jar in CLI (replicate browser flow)       | Fragile: must re-sign the HMAC'd cookie value with BETTER_AUTH_SECRET or capture set-cookies on every request; pointless when bearer() exists. ❌        |
 | Custom API-key/token middleware added to backend | New secret type to store/handle, bypasses Better Auth's rate limits/session revocation/multi-session management. Only needed if bearer() were absent. ❌ |
-| Better Auth `jwt()` plugin + short-lived JWTs | Nice-to-have later (avoids long-lived stored tokens); extra dependency and token-refresh UX. YAGNI for v1. Defer. ⏸ |
-| **bearer() plugin as-is** | Already configured, sessions revocable (multi-session lets user list/sign-out devices server-side later). ✅ |
+| Better Auth `jwt()` plugin + short-lived JWTs    | Nice-to-have later (avoids long-lived stored tokens); extra dependency and token-refresh UX. YAGNI for v1. Defer. ⏸                                      |
+| **bearer() plugin as-is**                        | Already configured, sessions revocable (multi-session lets user list/sign-out devices server-side later). ✅                                             |
 
 ### Storage rules
 
@@ -80,6 +80,7 @@ Recorded results:
 6. Revocation: `POST /api/auth/sign-out` with bearer → 200 `{"success":true}` (**must send `content-type: application/json` and an empty `{}` body or Better Auth returns 415 UNSUPPORTED_MEDIA_TYPE**). After sign-out the same token gets **401** on `/api/me` — server-side revocation works exactly as designed.
 
 Spike gotchas to carry into Tasks B/C/D:
+
 - `logout` must send `content-type: application/json` + `{}` body to `/api/auth/sign-out`.
 - Bonus finding: the metadata-fetch queue ran during the spike (bookmark arrived back with `fetchStatus: "success"`, title "Example Domain", favicon) — local stack is fully functional.
 - Note: rate limiting disabled by default in wrangler dev; keep the no-auto-retry rule for production anyway.
@@ -89,11 +90,13 @@ Spike gotchas to carry into Tasks B/C/D:
 ### Task B: Config storage + login/logout commands (TDD)
 
 **Files:**
+
 - Modify: `packages/cli/src/config.rs` — add `session_token` load/save, `0600` perms check.
 - Create: `packages/cli/src/cmd/login.rs`, `logout.rs`.
 - Add dep: `rpassword = "7"` (password prompt; also disables terminal echo).
 
 **TDD cycle:**
+
 1. Failing test: saving config sets permissions `0600`; `whoami` command prints email when token present, "not logged in" when absent.
 2. Implement minimal save/load + `login` handler:
    ```rust
