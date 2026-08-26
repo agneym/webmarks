@@ -76,20 +76,20 @@ pub struct Cli {
 
 #[derive(Subcommand)]
 pub enum Commands {
-    /// Sign in and store a session token locally
+    /// Sign in by opening the browser and completing login there.
+    ///
+    /// Uses the OAuth 2.0 Device Authorization Grant (RFC 8628): requests a
+    /// device code from the server, opens your default browser on the
+    /// verification page, and polls the token endpoint until you approve the
+    /// request in the browser.
     ///
     /// Examples:
-    ///   webmarks login --email me@example.com          (prompts for password)
-    ///   WEBMARKS_PASSWORD=... webmarks login --email me@example.com
-    ///   webmarks login --email me@example.com --password-file ./pw.txt
+    ///   webmarks login
+    ///   webmarks login --no-open        (print the URL instead of opening)
     Login {
+        /// Print the login URL instead of opening the browser
         #[arg(long)]
-        email: String,
-        #[arg(long, hide = true)]
-        password: Option<String>,
-        /// Read the password from a file instead of prompting (avoids shell history)
-        #[arg(long, value_name = "FILE")]
-        password_file: Option<std::path::PathBuf>,
+        no_open: bool,
     },
     /// Sign out and remove the stored token
     Logout,

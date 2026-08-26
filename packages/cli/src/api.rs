@@ -146,6 +146,11 @@ impl Client {
         }
     }
 
+    /// The resolved API base URL (used by the browser login flow).
+    pub fn base_url(&self) -> &str {
+        &self.base_url
+    }
+
     async fn send_json(
         &self,
         method: reqwest::Method,
@@ -165,36 +170,6 @@ impl Client {
     }
 
     // --- Auth ---
-
-    /// POST /api/auth/sign-in/email → store token from `set-auth-token`.
-    pub async fn sign_in(&self, email: &str, password: &str) -> anyhow::Result<()> {
-        let resp = self
-            .send_json(
-                reqwest::Method::POST,
-                "/api/auth/sign-in/email",
-                Some(&serde_json::json!({ "email": email, "password": password })),
-            )
-            .await?;
-
-        if !resp.status().is_success() {
-            let status = resp.status().as_u16();
-            let body = resp.text().await.unwrap_or_default();
-            return Err(api_error(status, &body));
-        }
-
-        let token = resp
-            .headers()
-            .get("set-auth-token")
-            .and_then(|v| v.to_str().ok())
-            .map(String::from)
-            .ok_or_else(|| {
-                anyhow!("sign-in succeeded but no set-auth-token header was returned")
-            })?;
-
-        let mut cfg = Config::load()?;
-        cfg.session_token = Some(token);
-        cfg.save()
-    }
 
     /// POST /api/auth/sign-out (requires content-type json + {} body or 415).
     pub async fn sign_out(&self) -> anyhow::Result<()> {

@@ -27,6 +27,7 @@ Backend API surface (verified in repo):
 Bookmark JSON shape (from `schemas.ts`): `{id, url, userId, title?, description?, image?, favicon?, fetchStatus: "pending"|"success"|"failed", visibility: "public"|"private", tags: [{id, name}]}`.
 
 Open questions to resolve before/during implementation:
+
 1. **Auth mechanism** — Better Auth client normally uses cookies. For a CLI we need either (a) an API-key/session-token header accepted by the worker, or (b) a `webmarks login` command that performs Better Auth sign-in and stores the session cookie. Task 2 below assumes storing the session token/cookie from `/api/auth/sign-in/email`; verify against the Better Auth docs in `node_modules/better-auth` during implementation.
 2. **Workspace location** — plan assumes `packages/cli` (consistent with `packages/*` bun workspaces layout); Rust does not need to be part of the bun workspace.
 
@@ -57,10 +58,12 @@ Global flags: `--base-url <URL>` (default `http://localhost:8787`, overridable b
 ### Task 0: Scaffold crate
 
 **Files:**
+
 - Create: `packages/cli/Cargo.toml`
 - Create: `packages/cli/src/main.rs`
 
 Steps:
+
 1. `cargo init packages/cli --name webmarks`.
 2. Cargo.toml deps: `clap = { version = "4", features = ["derive"] }`, `reqwest = { version = "0.12", features = ["json", "rustls-tls"], default-features = false }`, `serde = { version = "1", features = ["derive"] }`, `serde_json = "1"`, `tokio = { version = "1", features = ["macros", "rt-multi-thread"] }`, `anyhow = "1"`, `dirs = "6"`.
 3. Verify: `cargo build && cargo run -- --help` prints help.
@@ -70,6 +73,7 @@ Steps:
 ### Task 1: Models and config
 
 **Files:**
+
 - Create: `packages/cli/src/models.rs` — `Bookmark`, `Tag`, `BookmarkListResponse` structs with serde (`#[serde(rename_all = "camelCase")]`, nullable fields as `Option<String>`).
 - Create: `packages/cli/src/config.rs` — load/save `~/.config/webmarks/config.json` holding `{ base_url: Option<String>, session_token: Option<String> }` via `dirs::config_dir()`.
 
@@ -80,10 +84,12 @@ Commit: `feat(cli): models and config persistence`.
 ### Task 2: HTTP client + auth
 
 **Files:**
+
 - Create: `packages/cli/src/api.rs` — `Client { http: reqwest::Client, base_url: String }` with typed methods: `create_bookmark`, `list_bookmarks(ListOpts)`, `get_bookmark(id)`, `update_bookmark(id, UpdateOpts)`, `delete_bookmark(id)`, `set_tags(id, Vec<String>)`, `list_tags_for(id)`, `list_tags()`, `whoami()`, `sign_in(email, password)`.
 - Each method sends `Cookie: better-auth.session_token=<token>` header when a token exists; maps non-2xx to `anyhow` errors carrying the body's `{error}` field.
 
 TDD: integration test against `wrangler dev` (`bun run --filter backend dev`) hitting `http://localhost:8787`:
+
 - `list_bookmarks` returns 200 on fresh DB.
 - Unauthorized mutation returns error message "Unauthorized".
 
@@ -93,6 +99,7 @@ Commit: `feat(cli): api client with auth cookie`.
 ### Task 3: Clap definitions + output formatting
 
 **Files:**
+
 - Create: `packages/cli/src/cli.rs` — `#[derive(Parser)] struct Cli { #[command(subcommand)] command: Commands, #[arg(long, global)] json: bool, #[arg(long)] base_url: Option<Url> }` with subcommand enums matching the command list above.
 - Create: `packages/cli/src/output.rs` — pretty table renderer for `list` (columns: id short-form, title/url, tags, status, visibility) and human messages for `add/rm/update`.
 
@@ -103,9 +110,11 @@ Commit: `feat(cli): clap commands and output rendering`.
 ### Task 4: Wire main + per-command handlers
 
 **Files:**
+
 - Modify: `packages/cli/src/main.rs` — tokio main; dispatch each subcommand to a handler module; exit codes: 0 success, 1 API/network error, 2 not found.
 
 Verify manually against local stack:
+
 ```
 mise exec -- bun run db:migrate-local        # if needed
 cd packages/backend && wrangler dev &
@@ -114,6 +123,7 @@ cargo run -p webmarks -- list
 cargo run -p webmarks -- get <id>
 cargo run -p webmarks -- rm <id>
 ```
+
 Commit: `feat(cli): wire subcommands`.
 
 ### Task 5: Polish
