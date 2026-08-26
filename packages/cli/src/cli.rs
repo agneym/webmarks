@@ -77,23 +77,38 @@ pub struct Cli {
 #[derive(Subcommand)]
 pub enum Commands {
     /// Sign in and store a session token locally
+    ///
+    /// Examples:
+    ///   webmarks login --email me@example.com          (prompts for password)
+    ///   WEBMARKS_PASSWORD=... webmarks login --email me@example.com
+    ///   webmarks login --email me@example.com --password-file ./pw.txt
     Login {
         #[arg(long)]
         email: String,
-        #[arg(long)]
+        #[arg(long, hide = true)]
         password: Option<String>,
+        /// Read the password from a file instead of prompting (avoids shell history)
+        #[arg(long, value_name = "FILE")]
+        password_file: Option<std::path::PathBuf>,
     },
     /// Sign out and remove the stored token
     Logout,
     /// Show the currently signed-in user
     Whoami,
     /// Add a bookmark
+    ///
+    /// Examples:
+    ///   webmarks add https://example.com --json | jq -r '.id'
     Add {
         url: String,
         #[arg(long, value_enum)]
         visibility: Option<VisibilityArg>,
     },
     /// List bookmarks
+    ///
+    /// Examples:
+    ///   webmarks list -q rust --limit 20
+    ///   webmarks list --json --sort newest
     List {
         #[arg(long, default_value_t = 50)]
         limit: u32,
@@ -116,6 +131,11 @@ pub enum Commands {
         sort: Option<SortOrder>,
     },
     /// Get one bookmark by id
+    ///
+    /// Exits with code 2 when the bookmark is not found.
+    ///
+    /// Examples:
+    ///   webmarks get $(webmarks add https://example.com --json | jq -r '.id')
     Get { id: String },
     /// Update a bookmark
     Update {

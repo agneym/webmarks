@@ -3,6 +3,8 @@ mod cli;
 mod config;
 mod output;
 
+use std::io::IsTerminal;
+
 use clap::Parser;
 
 use crate::cli::{Cli, Commands};
@@ -15,13 +17,98 @@ async fn main() {
 }
 
 async fn run(cli: Cli) -> i32 {
+    // Record --json once so error reporting can emit a structured envelope.
+    JSON_MODE.store(cli.json, std::sync::atomic::Ordering::Relaxed);
     match dispatch(cli).await {
         Ok(()) => 0,
         Err(e) => {
-            eprintln!("error: {e:#}");
+            report_error(&e);
             exit_code_for(&e)
         }
     }
+}
+
+static JSON_MODE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+fn report_error(err: &anyhow::Error) {
+    if JSON_MODE.load(std::sync::atomic::Ordering::Relaxed) {
+        // Structured envelope on stderr so machines can branch on `code`
+        // and read `fix`; stdout stays reserved for data.
+        let envelope = serde_json::json!({
+            "status": "error",
+            "error": {
+                "code": error_code_for(err),
+                "message": format!("{err:#}"),
+                "fix": fix_hint_for(err),
+                "transient": is_transient(err),
+            }
+        });
+        eprintln!("{envelope}");
+        return;
+    }
+
+    eprintln!("error: {err:#}");
+    if let Some(fix) = fix_hint_for(err) {
+        eprintln!("\ntry: {fix}");
+    }
+}
+
+/// Machine-readable error class for agents to branch on.
+fn error_code_for(err: &anyhow::Error) -> &'static str {
+    if err.chain().any(|c| c.is::<api::ApiError>()) {
+        match err
+            .chain()
+            .find_map(|c| c.downcast_ref::<api::ApiError>())
+            .and_then(api::ApiError::status)
+        {
+            Some(401) => "AUTH_REQUIRED",
+            Some(404) => "NOT_FOUND",
+            Some(_) => "API_ERROR",
+            None => "API_ERROR",
+        }
+    } else if err.chain().any(|c| {
+        c.downcast_ref::<reqwest::Error>()
+            .is_some_and(|r| r.is_connect() || r.is_timeout())
+    }) {
+        "NETWORK"
+    } else {
+        "UNKNOWN"
+    }
+}
+
+/// The exact command a user (or agent) can run to recover.
+fn fix_hint_for(err: &anyhow::Error) -> Option<String> {
+    if err.chain().any(|c| c.is::<api::ApiError>()) {
+        let status = err
+            .chain()
+            .find_map(|c| c.downcast_ref::<api::ApiError>())
+            .and_then(api::ApiError::status);
+        return match status {
+            Some(401) => Some("webmarks login --email <you@example.com>".to_string()),
+            Some(_) => None,
+            None => None,
+        };
+    }
+    for cause in err.chain() {
+        if let Some(reqwest_err) = cause.downcast_ref::<reqwest::Error>() {
+            if reqwest_err.is_connect() || reqwest_err.is_timeout() {
+                return Some(
+                    "check the server is running, or pass --base-url <url>".to_string(),
+                );
+            }
+            return None;
+        }
+    }
+    None
+}
+
+/// Whether retrying may plausibly succeed.
+fn is_transient(err: &anyhow::Error) -> bool {
+    err.chain().any(|cause| {
+        cause
+            .downcast_ref::<reqwest::Error>()
+            .is_some_and(|r| r.is_connect() || r.is_timeout())
+    })
 }
 
 fn exit_code_for(err: &anyhow::Error) -> i32 {
@@ -33,6 +120,7 @@ fn exit_code_for(err: &anyhow::Error) -> i32 {
             .and_then(api::ApiError::status);
         return match status {
             Some(401) => 3,
+            Some(404) => 2,
             Some(_) => 1,
             None => 1,
         };
@@ -129,8 +217,12 @@ fn print_bookmark_or_json(cli: &Cli, bookmark: &config::Bookmark) {
 }
 
 async fn cmd_login(cli: &Cli) -> anyhow::Result<()> {
-    let (email, password_flag) = match &cli.command {
-        Commands::Login { email, password } => (email.clone(), password.clone()),
+    let (email, password_flag, password_file) = match &cli.command {
+        Commands::Login {
+            email,
+            password,
+            password_file,
+        } => (email.clone(), password.clone(), password_file.clone()),
         _ => unreachable!(),
     };
     let mut cfg = config::Config::load()?;
@@ -139,13 +231,35 @@ async fn cmd_login(cli: &Cli) -> anyhow::Result<()> {
         cfg.base_url = Some(base.clone());
     }
     let client = api::Client::from_config(&cfg)?;
-    let password = match password_flag {
-        Some(p) => p,
-        None => rpassword::prompt_password("Password: ")?,
+    let password = match (&password_file, &password_flag, password_from_env()) {
+        // Highest precedence first: explicit file > env var > flag > TTY prompt.
+        (Some(path), _, _) => std::fs::read_to_string(path)
+            .map_err(anyhow::Error::from)?
+            .trim_end_matches(['\n', '\r'])
+            .to_string(),
+        (None, _, Some(p)) if !p.is_empty() => p,
+        (None, Some(p), _) => p.clone(),
+        _ => {
+            // Interactive prompt only makes sense when stdin/stdout are a terminal;
+            // in CI or scripts fail with an actionable message instead of hanging.
+            if !std::io::stdin().is_terminal() || !std::io::stderr().is_terminal() {
+                anyhow::bail!(
+                    "no password provided and stdin is not a terminal; \
+                     use --password-file <FILE> or set WEBMARKS_PASSWORD"
+                );
+            }
+            rpassword::prompt_password("Password: ")?
+        }
     };
     client.sign_in(&email, &password).await?;
     println!("Logged in as {email}");
     Ok(())
+}
+
+fn password_from_env() -> Option<String> {
+    std::env::var("WEBMARKS_PASSWORD")
+        .ok()
+        .filter(|v| !v.is_empty())
 }
 
 async fn cmd_logout(_cli: &Cli, mut cfg: config::Config) -> anyhow::Result<()> {
@@ -182,6 +296,13 @@ async fn cmd_add(
     let c = client(cli, cfg)?;
     let bm = c.create_bookmark(url, visibility.map(Into::into)).await?;
     print_bookmark_or_json(cli, &bm);
+    if !cli.json {
+        println!(
+            "\nnext: webmarks get {} — or open {}",
+            bm.id.get(..8.min(bm.id.len())).unwrap_or(&bm.id),
+            bm.url
+        );
+    }
     Ok(())
 }
 
@@ -192,6 +313,17 @@ async fn cmd_list(cli: &Cli, cfg: &config::Config, opts: api::ListOpts) -> anyho
         println!("{}", serde_json::to_string(&resp).expect("list serializes"));
     } else {
         println!("{}", output::format_bookmark_table(&resp));
+        // Tell the reader how to get more instead of leaving them guessing.
+        let shown = resp.bookmarks.len() as i64;
+        let remaining = resp.total - resp.offset - shown;
+        if remaining > 0 {
+            let next_offset = resp.offset + shown;
+            println!(
+                "\nnext page: webmarks list --offset {next_offset} ({} of {} shown)",
+                resp.offset + shown,
+                resp.total
+            );
+        }
     }
     Ok(())
 }
