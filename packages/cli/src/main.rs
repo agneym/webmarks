@@ -1,9 +1,8 @@
 mod api;
 mod cli;
 mod config;
+mod login;
 mod output;
-
-use std::io::IsTerminal;
 
 use clap::Parser;
 
@@ -84,7 +83,7 @@ fn fix_hint_for(err: &anyhow::Error) -> Option<String> {
             .find_map(|c| c.downcast_ref::<api::ApiError>())
             .and_then(api::ApiError::status);
         return match status {
-            Some(401) => Some("webmarks login --email <you@example.com>".to_string()),
+            Some(401) => Some("webmarks login".to_string()),
             Some(_) => None,
             None => None,
         };
@@ -92,9 +91,7 @@ fn fix_hint_for(err: &anyhow::Error) -> Option<String> {
     for cause in err.chain() {
         if let Some(reqwest_err) = cause.downcast_ref::<reqwest::Error>() {
             if reqwest_err.is_connect() || reqwest_err.is_timeout() {
-                return Some(
-                    "check the server is running, or pass --base-url <url>".to_string(),
-                );
+                return Some("check the server is running, or pass --base-url <url>".to_string());
             }
             return None;
         }
@@ -217,49 +214,18 @@ fn print_bookmark_or_json(cli: &Cli, bookmark: &config::Bookmark) {
 }
 
 async fn cmd_login(cli: &Cli) -> anyhow::Result<()> {
-    let (email, password_flag, password_file) = match &cli.command {
-        Commands::Login {
-            email,
-            password,
-            password_file,
-        } => (email.clone(), password.clone(), password_file.clone()),
+    let no_open = match &cli.command {
+        Commands::Login { no_open } => *no_open,
         _ => unreachable!(),
     };
-    let mut cfg = config::Config::load()?;
+    let cfg = config::Config::load()?;
     // Apply --base-url for this invocation only; don't persist a one-off flag.
+    let mut effective = cfg.clone();
     if let Some(base) = &cli.base_url {
-        cfg.base_url = Some(base.clone());
+        effective.base_url = Some(base.clone());
     }
-    let client = api::Client::from_config(&cfg)?;
-    let password = match (&password_file, &password_flag, password_from_env()) {
-        // Highest precedence first: explicit file > env var > flag > TTY prompt.
-        (Some(path), _, _) => std::fs::read_to_string(path)
-            .map_err(anyhow::Error::from)?
-            .trim_end_matches(['\n', '\r'])
-            .to_string(),
-        (None, _, Some(p)) if !p.is_empty() => p,
-        (None, Some(p), _) => p.clone(),
-        _ => {
-            // Interactive prompt only makes sense when stdin/stdout are a terminal;
-            // in CI or scripts fail with an actionable message instead of hanging.
-            if !std::io::stdin().is_terminal() || !std::io::stderr().is_terminal() {
-                anyhow::bail!(
-                    "no password provided and stdin is not a terminal; \
-                     use --password-file <FILE> or set WEBMARKS_PASSWORD"
-                );
-            }
-            rpassword::prompt_password("Password: ")?
-        }
-    };
-    client.sign_in(&email, &password).await?;
-    println!("Logged in as {email}");
-    Ok(())
-}
-
-fn password_from_env() -> Option<String> {
-    std::env::var("WEBMARKS_PASSWORD")
-        .ok()
-        .filter(|v| !v.is_empty())
+    let client = api::Client::from_config(&effective)?;
+    login::run_login(&client, &cfg, no_open).await
 }
 
 async fn cmd_logout(_cli: &Cli, mut cfg: config::Config) -> anyhow::Result<()> {

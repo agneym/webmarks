@@ -1,6 +1,7 @@
 import { betterAuth, APIError } from "better-auth";
 import { createAuthMiddleware } from "better-auth/api";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
+import { deviceAuthorization } from "better-auth/plugins/device-authorization";
 import { bearer, multiSession, openAPI } from "better-auth/plugins";
 import { v7 as uuidv7 } from "uuid";
 import { createDrizzle } from "../db";
@@ -92,6 +93,7 @@ export const createAuth = (env: CloudflareBindings) =>
     plugins: [
       bearer(), // Accept Authorization: Bearer <token> for non-browser clients
       multiSession({ maximumSessions: 5 }), // Multiple devices logged in at once
+      deviceAuthorization(), // RFC 8628 device authorization flow (CLI login)
       openAPI(), // Auto-generated API docs at /api/auth/reference
     ],
   });

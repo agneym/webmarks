@@ -5,6 +5,7 @@ import { createAuth, type Auth } from "./lib/auth";
 import { logger } from "./middleware/logger";
 import bookmarks from "./routes/bookmarks";
 import tags from "./routes/tags";
+import deviceApp from "./routes/device";
 import { handleQueue, type QueueMessage } from "./queue-consumer";
 
 const app = new Hono<{
@@ -81,6 +82,8 @@ app.get("/api/me", async (c) => {
 
 app.route("/api/bookmarks", bookmarks);
 app.route("/api/tags", tags);
+// Device verification / approval pages (RFC 8628 user side)
+app.route("/device", deviceApp);
 
 app.get("/", (c) => {
   c.var.logger.info("health check");

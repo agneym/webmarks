@@ -17,7 +17,7 @@
   },
   "dependencies": {
     "@hono/zod-openapi": "^1.5.1",
-    "better-auth": "^1.6.25",
+    "better-auth": "^1.7.2",
     "drizzle-orm": "^0.45.2",
     "hono": "^4.12.32",
     "pino": "^10.3.1"
