@@ -110,9 +110,7 @@
       "indexes": {
         "account_userId_idx": {
           "name": "account_userId_idx",
-          "columns": [
-            "user_id"
-          ],
+          "columns": ["user_id"],
           "isUnique": false
         }
       },
@@ -121,12 +119,8 @@
           "name": "account_user_id_user_id_fk",
           "tableFrom": "account",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -199,16 +193,12 @@
       "indexes": {
         "session_token_unique": {
           "name": "session_token_unique",
-          "columns": [
-            "token"
-          ],
+          "columns": ["token"],
           "isUnique": true
         },
         "session_userId_idx": {
           "name": "session_userId_idx",
-          "columns": [
-            "user_id"
-          ],
+          "columns": ["user_id"],
           "isUnique": false
         }
       },
@@ -217,12 +207,8 @@
           "name": "session_user_id_user_id_fk",
           "tableFrom": "session",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -290,9 +276,7 @@
       "indexes": {
         "user_email_unique": {
           "name": "user_email_unique",
-          "columns": [
-            "email"
-          ],
+          "columns": ["email"],
           "isUnique": true
         }
       },
@@ -352,9 +336,7 @@
       "indexes": {
         "verification_identifier_idx": {
           "name": "verification_identifier_idx",
-          "columns": [
-            "identifier"
-          ],
+          "columns": ["identifier"],
           "isUnique": false
         }
       },
@@ -451,16 +433,12 @@
       "indexes": {
         "bookmark_userId_idx": {
           "name": "bookmark_userId_idx",
-          "columns": [
-            "user_id"
-          ],
+          "columns": ["user_id"],
           "isUnique": false
         },
         "bookmark_visibility_idx": {
           "name": "bookmark_visibility_idx",
-          "columns": [
-            "visibility"
-          ],
+          "columns": ["visibility"],
           "isUnique": false
         }
       },
@@ -469,12 +447,8 @@
           "name": "bookmark_user_id_user_id_fk",
           "tableFrom": "bookmark",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -560,16 +534,12 @@
       "indexes": {
         "device_code_device_code_unique": {
           "name": "device_code_device_code_unique",
-          "columns": [
-            "device_code"
-          ],
+          "columns": ["device_code"],
           "isUnique": true
         },
         "device_code_user_code_unique": {
           "name": "device_code_user_code_unique",
-          "columns": [
-            "user_code"
-          ],
+          "columns": ["user_code"],
           "isUnique": true
         }
       },
@@ -578,12 +548,8 @@
           "name": "device_code_user_id_user_id_fk",
           "tableFrom": "device_code",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -616,12 +582,8 @@
           "name": "bookmark_tag_bookmark_id_bookmark_id_fk",
           "tableFrom": "bookmark_tag",
           "tableTo": "bookmark",
-          "columnsFrom": [
-            "bookmark_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["bookmark_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -629,22 +591,15 @@
           "name": "bookmark_tag_tag_id_tag_id_fk",
           "tableFrom": "bookmark_tag",
           "tableTo": "tag",
-          "columnsFrom": [
-            "tag_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["tag_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {
         "bookmark_tag_bookmark_id_tag_id_pk": {
-          "columns": [
-            "bookmark_id",
-            "tag_id"
-          ],
+          "columns": ["bookmark_id", "tag_id"],
           "name": "bookmark_tag_bookmark_id_tag_id_pk"
         }
       },
@@ -695,17 +650,12 @@
       "indexes": {
         "tag_userId_idx": {
           "name": "tag_userId_idx",
-          "columns": [
-            "user_id"
-          ],
+          "columns": ["user_id"],
           "isUnique": false
         },
         "tag_userId_name_unique": {
           "name": "tag_userId_name_unique",
-          "columns": [
-            "user_id",
-            "name"
-          ],
+          "columns": ["user_id", "name"],
           "isUnique": true
         }
       },
@@ -714,12 +664,8 @@
           "name": "tag_user_id_user_id_fk",
           "tableFrom": "tag",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
