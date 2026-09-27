@@ -150,7 +150,7 @@ async fn dispatch(cli: Cli) -> anyhow::Result<()> {
         Commands::Add { url, visibility } => cmd_add(&cli, &cfg, url, *visibility).await,
         Commands::List {
             limit,
-            offset,
+            cursor,
             query,
             tag,
             status,
@@ -162,7 +162,7 @@ async fn dispatch(cli: Cli) -> anyhow::Result<()> {
                 &cfg,
                 api::ListOpts {
                     limit: Some(*limit),
-                    offset: Some(*offset),
+                    cursor: cursor.clone(),
                     q: query.clone(),
                     tag: tag.clone(),
                     fetch_status: *status,
@@ -280,15 +280,9 @@ async fn cmd_list(cli: &Cli, cfg: &config::Config, opts: api::ListOpts) -> anyho
     } else {
         println!("{}", output::format_bookmark_table(&resp));
         // Tell the reader how to get more instead of leaving them guessing.
-        let shown = resp.bookmarks.len() as i64;
-        let remaining = resp.total - resp.offset - shown;
-        if remaining > 0 {
-            let next_offset = resp.offset + shown;
-            println!(
-                "\nnext page: webmarks list --offset {next_offset} ({} of {} shown)",
-                resp.offset + shown,
-                resp.total
-            );
+        // Cursors are opaque, so hand back the exact command to continue.
+        if let Some(next) = &resp.next_cursor {
+            println!("\nnext page: webmarks list --cursor {next}");
         }
     }
     Ok(())

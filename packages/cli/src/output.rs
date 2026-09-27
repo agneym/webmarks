@@ -25,10 +25,10 @@ pub fn format_bookmark_table(resp: &BookmarkListResponse) -> String {
     }
     lines.push(String::new());
     lines.push(format!(
-        "{} bookmark(s) (total {}, showing offset {})",
+        "{} bookmark(s) (total {}, limit {})",
         resp.bookmarks.len(),
         resp.total,
-        resp.offset
+        resp.limit
     ));
     lines.join("\n")
 }

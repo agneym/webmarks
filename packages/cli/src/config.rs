@@ -48,14 +48,19 @@ pub enum Visibility {
     Private,
 }
 
-/// GET /api/bookmarks response shape.
+/// GET /api/bookmarks response shape (cursor-paginated).
+///
+/// `next_cursor` is opaque: pass it back verbatim to fetch the next page.
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BookmarkListResponse {
     pub bookmarks: Vec<Bookmark>,
     pub total: i64,
     pub limit: i64,
-    pub offset: i64,
+    #[serde(default)]
+    pub next_cursor: Option<String>,
+    #[serde(default)]
+    pub has_more: bool,
 }
 
 #[derive(Debug, Default, Clone, Deserialize, Serialize)]
@@ -147,15 +152,36 @@ mod tests {
     }
 
     #[test]
-    fn list_response_parses() {
+    fn list_response_parses_last_page() {
         let raw = r#"{
             "bookmarks": [],
             "total": 0,
             "limit": 50,
-            "offset": 0
+            "nextCursor": null,
+            "hasMore": false
         }"#;
         let resp: BookmarkListResponse = serde_json::from_str(raw).unwrap();
         assert_eq!(resp.total, 0);
+        assert!(resp.next_cursor.is_none());
+        assert!(!resp.has_more);
+    }
+
+    #[test]
+    fn list_response_parses_middle_page_with_cursor() {
+        let raw = r#"{
+            "bookmarks": [],
+            "total": 120,
+            "limit": 50,
+            "nextCursor": "eyJzIjoibmV3ZXN0IiwiaSI6ImJtLTEifQ",
+            "hasMore": true
+        }"#;
+        let resp: BookmarkListResponse = serde_json::from_str(raw).unwrap();
+        assert_eq!(resp.total, 120);
+        assert_eq!(
+            resp.next_cursor.as_deref(),
+            Some("eyJzIjoibmV3ZXN0IiwiaSI6ImJtLTEifQ")
+        );
+        assert!(resp.has_more);
     }
 
     #[test]

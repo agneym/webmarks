@@ -109,11 +109,13 @@ pub enum Commands {
     /// Examples:
     ///   webmarks list -q rust --limit 20
     ///   webmarks list --json --sort newest
+    ///   webmarks list --cursor <nextCursor>   (next page; cursor comes from --json output)
     List {
         #[arg(long, default_value_t = 50)]
         limit: u32,
-        #[arg(long, default_value_t = 0)]
-        offset: u32,
+        /// Opaque cursor from a previous page's `nextCursor` (omit for the first page)
+        #[arg(long)]
+        cursor: Option<String>,
         /// Search query (matches title, description, url)
         #[arg(short = 'q', long)]
         query: Option<String>,

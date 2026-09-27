@@ -27,7 +27,7 @@ impl Visibility {
 #[derive(Debug, Default, Clone)]
 pub struct ListOpts {
     pub limit: Option<u32>,
-    pub offset: Option<u32>,
+    pub cursor: Option<String>,
     pub q: Option<String>,
     pub tag: Option<String>,
     pub fetch_status: Option<crate::config::FetchStatus>,
@@ -233,8 +233,8 @@ impl Client {
         if let Some(limit) = opts.limit {
             req = req.query(&[("limit", limit.to_string())]);
         }
-        if let Some(offset) = opts.offset {
-            req = req.query(&[("offset", offset.to_string())]);
+        if let Some(cursor) = &opts.cursor {
+            req = req.query(&[("cursor", cursor)]);
         }
         if let Some(q) = &opts.q {
             req = req.query(&[("q", q)]);
