@@ -1,4 +1,4 @@
-import { Hono } from "hono";
+import { OpenAPIHono } from "@hono/zod-openapi";
 import { cors } from "hono/cors";
 import { bodyLimit } from "hono/body-limit";
 import { createAuth, type Auth } from "./lib/auth";
@@ -8,10 +8,17 @@ import tags from "./routes/tags";
 import deviceApp from "./routes/device";
 import { handleQueue, type QueueMessage } from "./queue-consumer";
 
-const app = new Hono<{
+const app = new OpenAPIHono<{
   Bindings: CloudflareBindings;
   Variables: { auth: Auth; logger: import("pino").Logger; userId?: string };
 }>();
+
+// Registered so operations that require a session show an auth lock in the docs.
+app.openAPIRegistry.registerComponent("securitySchemes", "bearerAuth", {
+  type: "http",
+  scheme: "bearer",
+  description: "Session token from `webmarks login` (Better Auth bearer plugin).",
+});
 
 // --- Global middleware ---
 
@@ -90,14 +97,24 @@ app.get("/", (c) => {
   return c.text("Webmarks API");
 });
 
-app.get("/api/doc", (c) => {
-  return c.json(
-    bookmarks.getOpenAPI31Document({
-      openapi: "3.1.0",
-      info: { title: "Webmarks API", version: "1.0.0" },
-    }),
-  );
-});
+// --- OpenAPI spec ---
+// Generated from every OpenAPIHono router mounted above, so paths are prefixed
+// correctly (`/api/bookmarks`, `/api/tags`) and all operations are included.
+const buildOpenApiDocument = (serverUrl: string) =>
+  app.getOpenAPI31Document({
+    openapi: "3.1.0",
+    info: {
+      title: "Webmarks API",
+      version: "1.0.0",
+      description:
+        "Bookmarking API for the webmarks CLI. Authenticate with a bearer session " +
+        "token obtained via the RFC 8628 device flow (`webmarks login`).",
+    },
+    servers: [{ url: serverUrl }],
+  });
+
+app.get("/api/doc", (c) => c.json(buildOpenApiDocument(new URL(c.req.url).origin)));
+app.get("/openapi.json", (c) => c.json(buildOpenApiDocument(new URL(c.req.url).origin)));
 
 // --- Global error handler ---
 

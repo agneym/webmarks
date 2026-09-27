@@ -19,6 +19,8 @@ const UpdateBookmarkBodySchema = z
 export const updateBookmarkRoute = createRoute({
   method: "patch",
   path: "/{id}",
+  tags: ["Bookmarks"],
+  security: [{ bearerAuth: [] }],
   request: {
     params: BookmarkIdParamSchema,
     body: {

@@ -41,6 +41,7 @@ const PaginationQuerySchema = z.object({
 export const listBookmarksRoute = createRoute({
   method: "get",
   path: "/",
+  tags: ["Bookmarks"],
   request: {
     query: PaginationQuerySchema,
   },

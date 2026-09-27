@@ -26,6 +26,8 @@ const BookmarkTagsResponseSchema = z
 export const setBookmarkTagsRoute = createRoute({
   method: "put",
   path: "/{id}/tags",
+  tags: ["Bookmark tags"],
+  security: [{ bearerAuth: [] }],
   request: {
     params: BookmarkIdParamSchema,
     body: {
@@ -75,6 +77,7 @@ export const setBookmarkTagsRoute = createRoute({
 export const getBookmarkTagsRoute = createRoute({
   method: "get",
   path: "/{id}/tags",
+  tags: ["Bookmark tags"],
   request: {
     params: BookmarkIdParamSchema,
   },

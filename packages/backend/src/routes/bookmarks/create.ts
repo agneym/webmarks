@@ -18,6 +18,8 @@ const CreateBookmarkBodySchema = z
 export const createBookmarkRoute = createRoute({
   method: "post",
   path: "/",
+  tags: ["Bookmarks"],
+  security: [{ bearerAuth: [] }],
   request: {
     body: {
       content: {

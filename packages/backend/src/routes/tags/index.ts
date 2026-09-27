@@ -30,6 +30,7 @@ tags.use("*", async (c, next) => {
 const listTagsRoute = createRoute({
   method: "get",
   path: "/",
+  tags: ["Tags"],
   responses: {
     200: {
       content: {

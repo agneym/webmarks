@@ -6,6 +6,8 @@ import { BookmarkIdParamSchema, ErrorSchema } from "./schemas";
 export const deleteBookmarkRoute = createRoute({
   method: "delete",
   path: "/{id}",
+  tags: ["Bookmarks"],
+  security: [{ bearerAuth: [] }],
   request: {
     params: BookmarkIdParamSchema,
   },

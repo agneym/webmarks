@@ -6,6 +6,7 @@ import { BookmarkSchema, BookmarkIdParamSchema, ErrorSchema } from "./schemas";
 export const getBookmarkRoute = createRoute({
   method: "get",
   path: "/{id}",
+  tags: ["Bookmarks"],
   request: {
     params: BookmarkIdParamSchema,
   },
