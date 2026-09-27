@@ -1,11 +1,22 @@
 import { OpenAPIHono } from "@hono/zod-openapi";
 import { v7 as uuidv7 } from "uuid";
-import { and, asc, desc, eq, inArray, like, or, sql } from "drizzle-orm";
+import { and, eq, inArray, like, or, sql } from "drizzle-orm";
 
 import type { Auth } from "../../lib/auth";
+import {
+  DEFAULT_SORT,
+  decodeCursor,
+  encodeCursor,
+  InvalidCursorError,
+  isSortOrder,
+  type CursorPayload,
+  type SortOrder,
+} from "../../lib/cursor";
 import { createDrizzle } from "../../db";
 import { bookmark } from "../../db/schema";
 import { tag, bookmarkTag } from "../../db/schema";
+
+import { buildKeysetPredicate, buildOrderBy, sortKeyOf } from "./keyset";
 
 import { createBookmarkRoute } from "./create";
 import { listBookmarksRoute } from "./list";
@@ -88,12 +99,27 @@ bookmarks.openapi(listBookmarksRoute, async (c) => {
   const db = createDrizzle(c.env.webmarks);
 
   const limit = Math.min(Math.max(Number(c.req.query("limit") ?? "50"), 1), 100);
-  const offset = Math.max(Number(c.req.query("offset") ?? "0"), 0);
+  const sortParam = c.req.query("sort") ?? DEFAULT_SORT;
+  const sort: SortOrder = isSortOrder(sortParam) ? sortParam : DEFAULT_SORT;
   const q = c.req.query("q");
   const tagFilter = c.req.query("tag");
   const fetchStatus = c.req.query("fetchStatus");
   const visibilityFilter = c.req.query("visibility") as "public" | "private" | undefined;
-  const sort = c.req.query("sort") ?? "newest";
+
+  // Decode the cursor before touching the DB so a bad one is a cheap 400.
+  // The cursor carries its own sort, so a mismatch can't silently skip rows.
+  const rawCursor = c.req.query("cursor");
+  let cursor: CursorPayload | undefined;
+  if (rawCursor !== undefined) {
+    try {
+      cursor = decodeCursor(rawCursor, sort);
+    } catch (err) {
+      if (err instanceof InvalidCursorError) {
+        return c.json({ error: err.message }, 400);
+      }
+      throw err;
+    }
+  }
 
   // Build WHERE conditions
   const conditions: ReturnType<typeof eq>[] = [];
@@ -137,40 +163,37 @@ bookmarks.openapi(listBookmarksRoute, async (c) => {
     conditions.push(inArray(bookmark.id, taggedIds));
   }
 
-  const where = and(...conditions);
+  // Filters define the whole result set; `total` counts all of it, so callers
+  // get a stable number on every page.
+  const filters = and(...conditions);
 
   const [countRow] = await db
     .select({ total: sql<number>`count(*)`.mapWith(Number) })
     .from(bookmark)
-    .where(where);
+    .where(filters);
   const total = countRow?.total ?? 0;
 
-  const orderBy = (() => {
-    switch (sort) {
-      case "oldest":
-        return asc(bookmark.createdAt);
-      case "title":
-        return asc(bookmark.title);
-      case "title_desc":
-        return desc(bookmark.title);
-      case "updated":
-        return desc(bookmark.updatedAt);
-      case "newest":
-      default:
-        return desc(bookmark.createdAt);
-    }
-  })();
+  // Keyset seek narrows the result set to this page: everything after the
+  // cursor position in this sort's order.
+  const where = cursor ? and(filters, buildKeysetPredicate(sort, cursor.k, cursor.i)) : filters;
 
+  // Fetch one extra row: its presence is what tells us another page exists,
+  // without a second round trip.
   const rows = await db
     .select()
     .from(bookmark)
     .where(where)
-    .orderBy(orderBy)
-    .limit(limit)
-    .offset(offset);
+    .orderBy(...buildOrderBy(sort))
+    .limit(limit + 1);
 
-  const withTags = await attachTagsToBookmarks(db, rows);
-  return c.json({ bookmarks: withTags, total, limit, offset }, 200);
+  const hasMore = rows.length > limit;
+  const page = hasMore ? rows.slice(0, limit) : rows;
+  const last = page.at(-1);
+  const nextCursor =
+    hasMore && last ? encodeCursor({ s: sort, k: sortKeyOf(last, sort), i: last.id }) : null;
+
+  const withTags = await attachTagsToBookmarks(db, page);
+  return c.json({ bookmarks: withTags, total, limit, nextCursor, hasMore }, 200);
 });
 
 // GET /:id — get a single bookmark (public ok; private requires owner)

@@ -41,7 +41,14 @@ export const BookmarkListResponseSchema = z
     bookmarks: z.array(BookmarkSchema),
     total: z.number().int().nonnegative().openapi({ example: 225 }),
     limit: z.number().int().positive().openapi({ example: 50 }),
-    offset: z.number().int().nonnegative().openapi({ example: 0 }),
+    nextCursor: z.string().nullable().openapi({
+      example: "eyJzIjoibmV3ZXN0Iiw...",
+      description: "Pass as `cursor` to fetch the next page. Null when this is the last page.",
+    }),
+    hasMore: z.boolean().openapi({
+      example: true,
+      description: "True when at least one more row exists after this page.",
+    }),
   })
   .openapi("BookmarkListResponse");
 

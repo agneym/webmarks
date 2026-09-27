@@ -115,7 +115,7 @@ describe("GET /api/bookmarks", () => {
     const res = await app.request("/api/bookmarks", undefined, env as any);
     expect(res.status).toBe(200);
     const body: any = await res.json();
-    expect(body).toEqual({ bookmarks: [], total: 0, limit: 50, offset: 0 });
+    expect(body).toEqual({ bookmarks: [], total: 0, limit: 50, nextCursor: null, hasMore: false });
   });
 
   it("returns only the authenticated user's bookmarks", async () => {
@@ -135,7 +135,8 @@ describe("GET /api/bookmarks", () => {
     const body: any = await res.json();
     expect(body.total).toBe(1);
     expect(body.limit).toBe(50);
-    expect(body.offset).toBe(0);
+    expect(body.hasMore).toBe(false);
+    expect(body.nextCursor).toBeNull();
     expect(body.bookmarks).toHaveLength(1);
     expect(body.bookmarks[0].id).toBe("bm-own-001");
     expect(body.bookmarks[0].userId).toBe(TEST_USER_ID);
@@ -165,22 +166,100 @@ describe("GET /api/bookmarks", () => {
     expect(privBody.bookmarks.map((b: any) => b.id)).toEqual(["bm-vis-priv"]);
   });
 
-  it("returns total count across pages", async () => {
-    for (let i = 0; i < 3; i++) {
+  it("walks every page of a sort with a cursor, with no gaps or repeats", async () => {
+    const rows = [
+      { id: "bm-walk-a", title: "Alpha", createdAt: 1000, updatedAt: 5000 },
+      { id: "bm-walk-b", title: "Charlie", createdAt: 2500, updatedAt: 1000 },
+      // Same createdAt as bm-walk-b: only the id tiebreaker keeps the two from
+      // being repeated or skipped when a page boundary lands between them.
+      { id: "bm-walk-c", title: "Bravo", createdAt: 2500, updatedAt: 3000 },
+      { id: "bm-walk-d", title: undefined, createdAt: 4000, updatedAt: 4000 },
+      { id: "bm-walk-e", title: "Delta", createdAt: 5000, updatedAt: 2000 },
+    ];
+    for (const row of rows) {
       await seedAndTrack({
-        id: `bm-page-${i}`,
-        url: `https://page${i}.example.com`,
+        id: row.id,
+        url: `https://${row.id}.example.com`,
         userId: TEST_USER_ID,
+        title: row.title,
+        createdAt: row.createdAt,
+        updatedAt: row.updatedAt,
       });
     }
 
-    const res = await app.request("/api/bookmarks?limit=1&offset=1", undefined, env as any);
-    expect(res.status).toBe(200);
+    const expected: Record<string, string[]> = {
+      newest: ["bm-walk-e", "bm-walk-d", "bm-walk-c", "bm-walk-b", "bm-walk-a"],
+      oldest: ["bm-walk-a", "bm-walk-b", "bm-walk-c", "bm-walk-d", "bm-walk-e"],
+      // A null title sorts as '' — first in ASC, last in DESC.
+      title: ["bm-walk-d", "bm-walk-a", "bm-walk-c", "bm-walk-b", "bm-walk-e"],
+      title_desc: ["bm-walk-e", "bm-walk-b", "bm-walk-c", "bm-walk-a", "bm-walk-d"],
+      updated: ["bm-walk-a", "bm-walk-d", "bm-walk-c", "bm-walk-e", "bm-walk-b"],
+    };
+
+    for (const [sort, order] of Object.entries(expected)) {
+      const seen: string[] = [];
+      let cursor: string | null = null;
+      let pages = 0;
+
+      // Hard cap so a bug that never reports the last page fails instead of looping.
+      for (let page = 0; page < 10; page++) {
+        const url =
+          `/api/bookmarks?limit=2&sort=${sort}` +
+          (cursor === null ? "" : `&cursor=${encodeURIComponent(cursor)}`);
+        const res = await app.request(url, undefined, env as any);
+        expect(res.status).toBe(200);
+        const body: any = await res.json();
+        pages += 1;
+        expect(body.limit).toBe(2);
+        // total counts the whole filtered set, so it must not shrink per page
+        expect(body.total).toBe(rows.length);
+        // hasMore and nextCursor must agree: more rows -> a cursor, last page -> null
+        expect(body.hasMore).toBe(body.nextCursor !== null);
+        seen.push(...body.bookmarks.map((b: any) => b.id));
+        cursor = body.nextCursor;
+        if (cursor === null) {
+          break;
+        }
+      }
+
+      expect(pages).toBe(3);
+      expect(seen).toEqual(order);
+    }
+  });
+
+  it("returns 400 for a malformed cursor", async () => {
+    const res = await app.request("/api/bookmarks?cursor=not-a-real-cursor", undefined, env as any);
+    expect(res.status).toBe(400);
     const body: any = await res.json();
-    expect(body.total).toBe(3);
-    expect(body.limit).toBe(1);
-    expect(body.offset).toBe(1);
-    expect(body.bookmarks).toHaveLength(1);
+    expect(body.error).toMatch(/invalid cursor/i);
+  });
+
+  it("returns 400 when a cursor is replayed under a different sort", async () => {
+    await seedAndTrack({
+      id: "bm-cursor-sort-a",
+      url: "https://cursor-sort-a.example.com",
+      userId: TEST_USER_ID,
+      createdAt: 1000,
+    });
+    await seedAndTrack({
+      id: "bm-cursor-sort-b",
+      url: "https://cursor-sort-b.example.com",
+      userId: TEST_USER_ID,
+      createdAt: 2000,
+    });
+
+    const first = await app.request("/api/bookmarks?limit=1&sort=newest", undefined, env as any);
+    const { nextCursor } = (await first.json()) as any;
+    expect(nextCursor).toEqual(expect.any(String));
+
+    const res = await app.request(
+      `/api/bookmarks?limit=1&sort=oldest&cursor=${encodeURIComponent(nextCursor)}`,
+      undefined,
+      env as any,
+    );
+    expect(res.status).toBe(400);
+    const body: any = await res.json();
+    expect(body.error).toMatch(/sort/i);
   });
 
   it("sorts by newest (default), oldest, title, and updated", async () => {
