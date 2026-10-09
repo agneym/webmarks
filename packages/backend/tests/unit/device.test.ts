@@ -36,6 +36,13 @@ function makeApp(auth: ReturnType<typeof makeAuth>) {
   return app;
 }
 
+/** Pulls the JSON-encoded `returnTo` literal out of the inline script. */
+function extractReturnTo(body: string): string {
+  const match = body.match(/const returnTo = (".*?");/);
+  expect(match).not.toBeNull();
+  return JSON.parse(match![1]);
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
 });
@@ -57,6 +64,48 @@ describe("GET /device (unauthenticated)", () => {
     const body = await res.text();
     expect(body).toContain('name="user_code"');
     expect(body).not.toContain("/api/auth/sign-in/email");
+  });
+});
+
+describe("GET /device sign-in page (Google)", () => {
+  it("renders a Continue with Google button alongside the email form", async () => {
+    const app = makeApp(makeAuth({ session: null }));
+    const res = await app.request("/device");
+    const body = await res.text();
+    expect(body).toContain('id="google"');
+    expect(body).toContain("Continue with Google");
+    expect(body).toContain("/api/auth/sign-in/social");
+    expect(body).toContain("provider: 'google'");
+    expect(body).toContain("callbackURL: returnTo");
+    expect(body).toContain("credentials: 'same-origin'");
+    expect(body).toContain("window.location.href = data.url");
+    // Email + password form is kept.
+    expect(body).toContain("/api/auth/sign-in/email");
+    expect(body).toContain('id="password"');
+    expect(extractReturnTo(body)).toBe("/device");
+  });
+
+  it("returns to /device?user_code=... after Google sign-in", async () => {
+    const app = makeApp(makeAuth({ session: null }));
+    const res = await app.request("/device?user_code=ABCD-2345");
+    const body = await res.text();
+    expect(body).toContain("Continue with Google");
+    expect(extractReturnTo(body)).toBe("/device?user_code=ABCD-2345");
+  });
+
+  it("safely encodes hostile user codes in the returnTo literal", async () => {
+    const app = makeApp(makeAuth({ session: null }));
+    const code = '</script><script>alert(1)</script>"';
+    const res = await app.request(`/device?user_code=${encodeURIComponent(code)}`);
+    const body = await res.text();
+    expect(body).not.toContain("<script>alert(1)");
+    expect(extractReturnTo(body)).toBe(`/device?user_code=${encodeURIComponent(code)}`);
+  });
+
+  it("does not render the Google button once signed in", async () => {
+    const app = makeApp(makeAuth({ session: { user: { id: "u1", email: "test@example.com" } } }));
+    const res = await app.request("/device");
+    expect(await res.text()).not.toContain("Continue with Google");
   });
 });
 

@@ -24,11 +24,20 @@ type Vars = {
 
 const app = new Hono<Vars>();
 
-/** Sign-in form; after success the browser returns to `returnTo`. */
+/**
+ * Sign-in options; after success the browser returns to `returnTo`.
+ *
+ * `returnTo` must be a root-relative path on this (backend) origin, e.g.
+ * `/device?user_code=XXXX`. Better Auth's origin check accepts safe relative
+ * callback URLs, and after the Google OAuth callback it redirects there with the
+ * session cookie already set on the backend origin.
+ */
 function renderSignInPage(returnTo: string): string {
   return `
 <div class="card">
   <h2 style="margin-top:0">Sign in to continue</h2>
+  <button type="button" id="google">Continue with Google</button>
+  <p style="text-align:center;color:#888;margin:1rem 0 0">or</p>
   <form id="f">
     <input id="email" name="email" type="email" autocomplete="username" placeholder="Email" required>
     <input id="password" name="password" type="password" autocomplete="current-password" placeholder="Password" required>
@@ -38,8 +47,32 @@ function renderSignInPage(returnTo: string): string {
 </div>
 <script>
 (() => {
+  const returnTo = ${JSON.stringify(returnTo).replace(/</g, "\\u003c")};
   const f = document.getElementById('f');
   const err = document.getElementById('err');
+  const google = document.getElementById('google');
+  google.addEventListener('click', async () => {
+    err.textContent = '';
+    google.disabled = true;
+    try {
+      const resp = await fetch('/api/auth/sign-in/social', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ provider: 'google', callbackURL: returnTo }),
+      });
+      const data = await resp.json().catch(() => null);
+      if (!resp.ok || !data?.url) {
+        err.textContent = data?.message ?? 'Google sign-in failed (' + resp.status + ')';
+        google.disabled = false;
+        return;
+      }
+      window.location.href = data.url;
+    } catch {
+      err.textContent = 'Network error during sign-in';
+      google.disabled = false;
+    }
+  });
   f.addEventListener('submit', async (e) => {
     e.preventDefault();
     err.textContent = '';
@@ -58,7 +91,7 @@ function renderSignInPage(returnTo: string): string {
         err.textContent = data?.message ?? 'Sign-in failed (' + resp.status + ')';
         return;
       }
-      window.location.href = ${JSON.stringify(returnTo)};
+      window.location.href = returnTo;
     } catch {
       err.textContent = 'Network error during sign-in';
     }
