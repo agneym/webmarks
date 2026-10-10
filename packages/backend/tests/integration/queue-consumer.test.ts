@@ -103,9 +103,8 @@ describe("handleQueue", () => {
 
     // Verify retry was called, ack was not
     expect(msg.retry).toHaveBeenCalledOnce();
-    expect(msg.retry).toHaveBeenCalledWith({
-      delaySeconds: expect.any(Number),
-    });
+    // attempts=2 with a 30s base: 30 * 2^(2-1) = 60s.
+    expect(msg.retry).toHaveBeenCalledWith({ delaySeconds: 60 });
     expect(msg.ack).not.toHaveBeenCalled();
 
     // Verify bookmark is still pending (not changed to failed)

@@ -82,11 +82,14 @@ impl Config {
 
     /// Load the config if it exists; missing file yields the default config.
     pub fn load() -> anyhow::Result<Config> {
-        let path = Self::path()?;
+        Self::load_from(&Self::path()?)
+    }
+
+    fn load_from(path: &std::path::Path) -> anyhow::Result<Config> {
         if !path.exists() {
             return Ok(Config::default());
         }
-        let raw = fs::read_to_string(&path)?;
+        let raw = fs::read_to_string(path)?;
         Ok(serde_json::from_str(&raw)?)
     }
 
@@ -101,12 +104,15 @@ impl Config {
     }
 
     pub fn save(&self) -> anyhow::Result<()> {
-        let path = Self::path()?;
-        Self::ensure_dir(&path)?;
+        self.save_to(&Self::path()?)
+    }
+
+    fn save_to(&self, path: &std::path::Path) -> anyhow::Result<()> {
+        Self::ensure_dir(path)?;
 
         // Refuse to silently loosen an existing file's permissions.
         if path.exists() {
-            let mode = fs::metadata(&path)?.permissions().mode() & 0o777;
+            let mode = fs::metadata(path)?.permissions().mode() & 0o777;
             if mode & 0o077 != 0 {
                 anyhow::bail!(
                     "refusing to overwrite {} with permissive permissions ({:o}); fix with chmod 600",
@@ -117,11 +123,11 @@ impl Config {
         }
 
         let json = serde_json::to_string_pretty(self)?;
-        fs::write(&path, json)?;
+        fs::write(path, json)?;
 
-        let mut perms = fs::metadata(&path)?.permissions();
+        let mut perms = fs::metadata(path)?.permissions();
         perms.set_mode(0o600);
-        fs::set_permissions(&path, perms)?;
+        fs::set_permissions(path, perms)?;
         Ok(())
     }
 }
@@ -152,13 +158,13 @@ mod tests {
     }
 
     #[test]
-    fn list_response_parses_last_page() {
+    fn list_response_defaults_cursor_fields_when_absent() {
+        // `nextCursor` / `hasMore` are optional on the wire: a body without them
+        // must parse as the last page rather than fail.
         let raw = r#"{
             "bookmarks": [],
             "total": 0,
-            "limit": 50,
-            "nextCursor": null,
-            "hasMore": false
+            "limit": 50
         }"#;
         let resp: BookmarkListResponse = serde_json::from_str(raw).unwrap();
         assert_eq!(resp.total, 0);
@@ -186,40 +192,31 @@ mod tests {
 
     #[test]
     fn save_creates_config_with_0600() {
-        // Serialize HOME mutation: cargo runs tests in parallel threads.
-        static HOME_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
-        let _guard = HOME_LOCK.lock().unwrap();
-
-        // Redirect HOME so we don't touch the real config dir.
+        // Work on an explicit path under a fresh temp dir instead of redirecting
+        // HOME: `dirs::config_dir()` prefers XDG_CONFIG_HOME, so changing HOME
+        // alone could still write over the real config.
         let tmp = std::env::temp_dir().join(format!(
-            "webmarks-test-{}-{}",
+            "webmarks-test-{}-{:?}",
             std::process::id(),
-            std::ptr::from_ref(&_guard) as usize
+            std::thread::current().id()
         ));
-        std::fs::create_dir_all(&tmp).unwrap();
-
-        let prev_home = std::env::var("HOME").ok();
-        std::env::set_var("HOME", &tmp);
+        let _ = fs::remove_dir_all(&tmp);
+        let path = tmp.join("webmarks").join("config.json");
 
         let cfg = Config {
             session_token: Some("secret-token".into()),
             base_url: None,
         };
-        cfg.save().unwrap();
+        let result = cfg.save_to(&path).and_then(|()| {
+            let mode = fs::metadata(&path)?.permissions().mode() & 0o777;
+            let dir_mode = fs::metadata(path.parent().unwrap())?.permissions().mode() & 0o777;
+            Ok((mode, dir_mode, Config::load_from(&path)?))
+        });
+        let _ = fs::remove_dir_all(&tmp);
 
-        let path = Config::path().unwrap();
-        assert!(path.exists(), "{:?} should exist", path);
-        let mode = fs::metadata(&path).unwrap().permissions().mode() & 0o777;
+        let (mode, dir_mode, loaded) = result.unwrap();
         assert_eq!(mode, 0o600);
-
-        let loaded = Config::load().unwrap();
+        assert_eq!(dir_mode, 0o700);
         assert_eq!(loaded.session_token.as_deref(), Some("secret-token"));
-
-        // restore env
-        match prev_home {
-            Some(h) => std::env::set_var("HOME", h),
-            None => std::env::remove_var("HOME"),
-        }
-        let _ = std::fs::remove_dir_all(tmp);
     }
 }

@@ -199,26 +199,37 @@ describe("GET /api/bookmarks/:id/tags", () => {
 
 describe("GET /api/tags", () => {
   it("returns all user's tags with counts", async () => {
-    const bookmarkId = "bm-tags-list-001";
+    // Counts of 0, 1 and 2 tell COUNT(bookmark_id) apart from COUNT(*) on the
+    // LEFT JOIN, which would report 1 for an unused tag.
+    const bm1 = "bm-tags-list-001";
+    const bm2 = "bm-tags-list-002";
     await seedBookmark(env as any, {
-      id: bookmarkId,
+      id: bm1,
       url: "https://list-tags.example.com",
+      userId: TEST_USER_ID,
+    });
+    await seedBookmark(env as any, {
+      id: bm2,
+      url: "https://list-tags-2.example.com",
       userId: TEST_USER_ID,
     });
     await seedTag(env as any, { id: "tag-work", name: "work", userId: TEST_USER_ID });
     await seedTag(env as any, { id: "tag-personal", name: "personal", userId: TEST_USER_ID });
-    await seedBookmarkTag(env as any, { bookmarkId, tagId: "tag-work" });
-    await seedBookmarkTag(env as any, { bookmarkId, tagId: "tag-personal" });
-    seededIds.push(bookmarkId);
+    await seedTag(env as any, { id: "tag-archive", name: "archive", userId: TEST_USER_ID });
+    await seedBookmarkTag(env as any, { bookmarkId: bm1, tagId: "tag-work" });
+    await seedBookmarkTag(env as any, { bookmarkId: bm2, tagId: "tag-work" });
+    await seedBookmarkTag(env as any, { bookmarkId: bm1, tagId: "tag-personal" });
+    seededIds.push(bm1, bm2);
 
     const res = await app.request("/api/tags", undefined, env as any);
     expect(res.status).toBe(200);
     const body: any = await res.json();
-    expect(body.tags).toHaveLength(2);
-    expect(body.tags[0].name).toBe("personal"); // Alphabetical order
-    expect(body.tags[1].name).toBe("work");
-    expect(body.tags[0].bookmarkCount).toBe(1);
-    expect(body.tags[1].bookmarkCount).toBe(1);
+    // Alphabetical order
+    expect(body.tags).toEqual([
+      { id: "tag-archive", name: "archive", bookmarkCount: 0 },
+      { id: "tag-personal", name: "personal", bookmarkCount: 1 },
+      { id: "tag-work", name: "work", bookmarkCount: 2 },
+    ]);
   });
 
   it("returns only the authenticated user's tags", async () => {

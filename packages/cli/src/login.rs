@@ -276,7 +276,11 @@ mod tests {
     #[test]
     fn invalid_grant_is_fatal() {
         let d = decision(400, r#"{"error":"invalid_grant"}"#, 5);
-        assert!(matches!(d, PollDecision::Fatal(_)));
+        // Must come from the invalid_grant arm, not the catch-all.
+        assert!(
+            matches!(&d, PollDecision::Fatal(m) if m.contains("invalid device code")),
+            "got {d:?}"
+        );
     }
 
     #[test]
@@ -291,6 +295,10 @@ mod tests {
     #[test]
     fn unparsable_error_body_is_fatal() {
         let d = decision(403, "<html>nope</html>", 5);
-        assert!(matches!(d, PollDecision::Fatal(_)));
+        assert!(
+            matches!(&d, PollDecision::Fatal(m)
+                if m.contains("HTTP 403") && m.contains("unparsable response body: <html>nope</html>")),
+            "got {d:?}"
+        );
     }
 }
