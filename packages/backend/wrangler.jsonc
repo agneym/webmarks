@@ -4,9 +4,15 @@
   "main": "src/index.ts",
   "compatibility_date": "2026-04-27",
   "compatibility_flags": ["nodejs_compat"],
-  // "vars": {
-  //   "MY_VAR": "my-variable"
-  // },
+  // Non-secret config. Local values in .dev.vars override these during
+  // `wrangler dev`. Secrets (BETTER_AUTH_SECRET, GOOGLE_CLIENT_SECRET) are set
+  // with `wrangler secret put`.
+  "vars": {
+    "BETTER_AUTH_URL": "https://backend.quickread.workers.dev",
+    "GOOGLE_CLIENT_ID": "1038763736810-i3lrufrvdtjj993jl8i07288rr8u6e99.apps.googleusercontent.com",
+    "OWNER_EMAIL": "agney.menons@gmail.com",
+    "WEB_APP_URL": "https://agney.dev",
+  },
   // "kv_namespaces": [
   //   {
   //     "binding": "MY_KV_NAMESPACE",
