@@ -5,10 +5,17 @@ import { DEFAULT_SORT, SORT_ORDERS } from "../../lib/cursor";
 // --- Schema ---
 
 const PaginationQuerySchema = z.object({
-  limit: z
-    .string()
+  limit: z.coerce
+    .number()
+    .int()
+    .min(1)
     .optional()
-    .openapi({ example: "50", description: "Max items to return (1–100, default 50)" }),
+    .openapi({
+      example: 50,
+      description:
+        "Max items to return: a positive integer, default 50. Values above 100 are clamped " +
+        "to 100; anything else (non-numeric, zero, negative, fractional) returns 400.",
+    }),
   cursor: z
     .string()
     .optional()
@@ -67,7 +74,9 @@ export const listBookmarksRoute = createRoute({
           schema: ErrorSchema,
         },
       },
-      description: "Invalid cursor (malformed, or issued for a different sort)",
+      description:
+        "Invalid query parameter (e.g. a non-positive `limit` or unknown `sort`), or an " +
+        "invalid cursor (malformed, or issued for a different sort)",
     },
   },
 });

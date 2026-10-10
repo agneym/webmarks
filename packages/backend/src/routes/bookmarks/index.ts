@@ -31,6 +31,9 @@ type Variables = { auth: Auth; logger: import("pino").Logger; userId?: string };
 
 const bookmarks = new OpenAPIHono<{ Bindings: Bindings; Variables: Variables }>();
 
+const DEFAULT_LIMIT = 50;
+const MAX_LIMIT = 100;
+
 // --- Optional auth (public can read; mutations require a session) ---
 
 bookmarks.use("*", async (c, next) => {
@@ -98,7 +101,8 @@ bookmarks.openapi(listBookmarksRoute, async (c) => {
   const userId = c.get("userId");
   const db = createDrizzle(c.env.webmarks);
 
-  const limit = Math.min(Math.max(Number(c.req.query("limit") ?? "50"), 1), 100);
+  // `limit` is already validated as a positive integer by the query schema.
+  const limit = Math.min(c.req.valid("query").limit ?? DEFAULT_LIMIT, MAX_LIMIT);
   const sortParam = c.req.query("sort") ?? DEFAULT_SORT;
   const sort: SortOrder = isSortOrder(sortParam) ? sortParam : DEFAULT_SORT;
   const q = c.req.query("q");

@@ -227,6 +227,36 @@ describe("GET /api/bookmarks", () => {
     }
   });
 
+  it("rejects a non-numeric, zero, negative or fractional limit with 400", async () => {
+    // Validated by the query schema, the same way as sort/fetchStatus/visibility.
+    for (const limit of ["abc", "0", "-5", "1.5", ""]) {
+      const res = await app.request(
+        `/api/bookmarks?limit=${encodeURIComponent(limit)}`,
+        undefined,
+        env as any,
+      );
+      expect.soft(res.status, `limit=${limit}`).toBe(400);
+      const body: any = await res.json();
+      expect.soft(body.success, `limit=${limit}`).toBe(false);
+      expect.soft(JSON.stringify(body.error), `limit=${limit}`).toContain("limit");
+    }
+  });
+
+  it("rejects an unknown sort with 400", async () => {
+    const res = await app.request("/api/bookmarks?sort=bogus", undefined, env as any);
+    expect(res.status).toBe(400);
+    const body: any = await res.json();
+    expect(body.success).toBe(false);
+    expect(JSON.stringify(body.error)).toContain("sort");
+  });
+
+  it("clamps a limit above 100 to 100", async () => {
+    const res = await app.request("/api/bookmarks?limit=500", undefined, env as any);
+    expect(res.status).toBe(200);
+    const body: any = await res.json();
+    expect(body.limit).toBe(100);
+  });
+
   it("returns 400 for a malformed cursor", async () => {
     const res = await app.request("/api/bookmarks?cursor=not-a-real-cursor", undefined, env as any);
     expect(res.status).toBe(400);
