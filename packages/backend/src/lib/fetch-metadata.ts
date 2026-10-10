@@ -98,6 +98,17 @@ function firstContent<K extends string>(slots: Record<K, string | undefined>, ke
   };
 }
 
+/** HTMLRewriter handler that keeps the first non-empty `href` attribute in `slots[key]`. */
+function firstHref<K extends string>(slots: Record<K, string | undefined>, key: K) {
+  return {
+    element(el: Element) {
+      if (slots[key] === undefined) {
+        slots[key] = el.getAttribute("href")?.trim() || undefined;
+      }
+    },
+  };
+}
+
 /**
  * Fetch a URL and extract Open Graph / HTML metadata using Cloudflare's
  * native HTMLRewriter (streaming, zero dependencies).
@@ -170,9 +181,15 @@ export async function fetchMetadata(urlString: string): Promise<BookmarkMetadata
   // Track image candidates
   let ogImageUrl: string | undefined;
 
-  // Track all favicon candidates (last one wins due to HTMLRewriter ordering,
-  // but we order selectors by priority: apple-touch-icon > shortcut icon > icon)
-  let faviconHref: string | undefined;
+  // Favicon candidates, first non-empty href of each kind. Picked by priority
+  // after parsing (apple-touch-icon > shortcut icon > icon > mask-icon), not by
+  // document order.
+  const favicons: Record<"apple" | "shortcut" | "icon" | "mask", string | undefined> = {
+    apple: undefined,
+    shortcut: undefined,
+    icon: undefined,
+    mask: undefined,
+  };
 
   // <title> text can arrive in several chunks; buffer the first title element.
   let titleText = "";
@@ -230,32 +247,13 @@ export async function fetchMetadata(urlString: string): Promise<BookmarkMetadata
       },
     })
 
-    // ── Favicon fallback chain (ordered by specificity) ──────────────
+    // ── Favicon candidates ───────────────────────────────────────────
     // apple-touch-icon is high-res and widely available
-    .on('link[rel="apple-touch-icon"]', {
-      element(el: Element) {
-        const href = el.getAttribute("href")?.trim();
-        if (href) faviconHref = href;
-      },
-    })
-    .on('link[rel="shortcut icon"]', {
-      element(el: Element) {
-        const href = el.getAttribute("href")?.trim();
-        if (href) faviconHref = href;
-      },
-    })
-    .on('link[rel="icon"]', {
-      element(el: Element) {
-        const href = el.getAttribute("href")?.trim();
-        if (href) faviconHref = href;
-      },
-    })
-    .on('link[rel="mask-icon"]', {
-      element(el: Element) {
-        const href = el.getAttribute("href")?.trim();
-        if (href && !faviconHref) faviconHref = href;
-      },
-    });
+    .on('link[rel="apple-touch-icon"]', firstHref(favicons, "apple"))
+    .on('link[rel="shortcut icon"]', firstHref(favicons, "shortcut"))
+    .on('link[rel="icon"]', firstHref(favicons, "icon"))
+    // mask-icon is a monochrome Safari pinned-tab SVG: last resort only
+    .on('link[rel="mask-icon"]', firstHref(favicons, "mask"));
 
   await rewriter.transform(response).text();
 
@@ -265,7 +263,10 @@ export async function fetchMetadata(urlString: string): Promise<BookmarkMetadata
 
   // Resolve relative URLs
   metadata.image = resolveUrl(ogImageUrl, baseUrl);
-  metadata.favicon = resolveUrl(faviconHref, baseUrl);
+  metadata.favicon = resolveUrl(
+    favicons.apple ?? favicons.shortcut ?? favicons.icon ?? favicons.mask,
+    baseUrl,
+  );
 
   return metadata;
 }

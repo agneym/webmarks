@@ -310,24 +310,58 @@ describe("fetchMetadata", () => {
     expect(result.favicon).toBe("https://example.com/mask-icon.svg");
   });
 
-  it("ignores mask-icon when a higher-priority favicon exists", async () => {
-    const html = `<!DOCTYPE html>
-<html>
-<head>
-  <link rel="icon" href="/icon.png" />
-  <link rel="mask-icon" href="/mask-icon.svg" />
-</head>
-<body></body>
-</html>`;
+  it("ignores mask-icon when a higher-priority favicon exists, in either order", async () => {
+    const iconFirst = await extract(`
+      <link rel="icon" href="/icon.png" />
+      <link rel="mask-icon" href="/mask-icon.svg" />`);
+    expect(iconFirst.favicon).toBe("https://example.com/icon.png");
 
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      new Response(html, {
-        status: 200,
-        headers: { "Content-Type": "text/html" },
-      }),
-    );
+    const maskFirst = await extract(`
+      <link rel="mask-icon" href="/mask-icon.svg" />
+      <link rel="icon" href="/icon.png" />`);
+    expect(maskFirst.favicon).toBe("https://example.com/icon.png");
+  });
 
-    const result = await fetchMetadata("https://example.com");
-    expect(result.favicon).toBe("https://example.com/icon.png");
+  it("prefers apple-touch-icon over icon regardless of order", async () => {
+    const appleFirst = await extract(`
+      <link rel="apple-touch-icon" href="/apple.png" />
+      <link rel="icon" href="/icon.png" />`);
+    expect(appleFirst.favicon).toBe("https://example.com/apple.png");
+
+    const iconFirst = await extract(`
+      <link rel="icon" href="/icon.png" />
+      <link rel="apple-touch-icon" href="/apple.png" />`);
+    expect(iconFirst.favicon).toBe("https://example.com/apple.png");
+  });
+
+  it("prefers apple-touch-icon over shortcut icon regardless of order", async () => {
+    const appleFirst = await extract(`
+      <link rel="apple-touch-icon" href="/apple.png" />
+      <link rel="shortcut icon" href="/shortcut.ico" />`);
+    expect(appleFirst.favicon).toBe("https://example.com/apple.png");
+
+    const shortcutFirst = await extract(`
+      <link rel="shortcut icon" href="/shortcut.ico" />
+      <link rel="apple-touch-icon" href="/apple.png" />`);
+    expect(shortcutFirst.favicon).toBe("https://example.com/apple.png");
+  });
+
+  it("prefers shortcut icon over icon regardless of order", async () => {
+    const shortcutFirst = await extract(`
+      <link rel="shortcut icon" href="/shortcut.ico" />
+      <link rel="icon" href="/icon.png" />`);
+    expect(shortcutFirst.favicon).toBe("https://example.com/shortcut.ico");
+
+    const iconFirst = await extract(`
+      <link rel="icon" href="/icon.png" />
+      <link rel="shortcut icon" href="/shortcut.ico" />`);
+    expect(iconFirst.favicon).toBe("https://example.com/shortcut.ico");
+  });
+
+  it("uses the first icon of the same kind", async () => {
+    const result = await extract(`
+      <link rel="icon" href="/icon-32.png" />
+      <link rel="icon" href="/icon-16.png" />`);
+    expect(result.favicon).toBe("https://example.com/icon-32.png");
   });
 });
