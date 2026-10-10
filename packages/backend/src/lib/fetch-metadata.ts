@@ -87,6 +87,17 @@ function resolveUrl(href: string | undefined, base: URL): string | undefined {
   }
 }
 
+/** HTMLRewriter handler that keeps the first non-empty `content` attribute in `slots[key]`. */
+function firstContent<K extends string>(slots: Record<K, string | undefined>, key: K) {
+  return {
+    element(el: Element) {
+      if (slots[key] === undefined) {
+        slots[key] = el.getAttribute("content")?.trim() || undefined;
+      }
+    },
+  };
+}
+
 /**
  * Fetch a URL and extract Open Graph / HTML metadata using Cloudflare's
  * native HTMLRewriter (streaming, zero dependencies).
@@ -140,6 +151,22 @@ export async function fetchMetadata(urlString: string): Promise<BookmarkMetadata
   // State for HTMLRewriter callbacks
   const metadata: BookmarkMetadata = {};
 
+  // HTMLRewriter calls handlers in document order, so each source records its
+  // first non-empty value and the winner is picked by priority afterwards:
+  // og > twitter > plain HTML, wherever the tags appear in the document.
+  const titles: Record<"og" | "twitter" | "meta" | "html", string | undefined> = {
+    og: undefined,
+    twitter: undefined,
+    meta: undefined,
+    html: undefined,
+  };
+  const descriptions: Record<"og" | "twitter" | "meta" | "itemprop", string | undefined> = {
+    og: undefined,
+    twitter: undefined,
+    meta: undefined,
+    itemprop: undefined,
+  };
+
   // Track image candidates
   let ogImageUrl: string | undefined;
 
@@ -147,22 +174,13 @@ export async function fetchMetadata(urlString: string): Promise<BookmarkMetadata
   // but we order selectors by priority: apple-touch-icon > shortcut icon > icon)
   let faviconHref: string | undefined;
 
+  // <title> text can arrive in several chunks; buffer the first title element.
+  let titleText = "";
+
   const rewriter = new HTMLRewriter()
     // ── Open Graph tags ──────────────────────────────────────────────
-    .on('meta[property="og:title"]', {
-      element(el: Element) {
-        if (!metadata.title) {
-          metadata.title = el.getAttribute("content")?.trim() || undefined;
-        }
-      },
-    })
-    .on('meta[property="og:description"]', {
-      element(el: Element) {
-        if (!metadata.description) {
-          metadata.description = el.getAttribute("content")?.trim() || undefined;
-        }
-      },
-    })
+    .on('meta[property="og:title"]', firstContent(titles, "og"))
+    .on('meta[property="og:description"]', firstContent(descriptions, "og"))
     .on('meta[property="og:image"]', {
       element(el: Element) {
         const content = el.getAttribute("content")?.trim();
@@ -181,20 +199,14 @@ export async function fetchMetadata(urlString: string): Promise<BookmarkMetadata
     })
 
     // ── Twitter Card tags (fallback) ─────────────────────────────────
-    .on('meta[name="twitter:title"], meta[property="twitter:title"]', {
-      element(el: Element) {
-        if (!metadata.title) {
-          metadata.title = el.getAttribute("content")?.trim() || undefined;
-        }
-      },
-    })
-    .on('meta[name="twitter:description"], meta[property="twitter:description"]', {
-      element(el: Element) {
-        if (!metadata.description) {
-          metadata.description = el.getAttribute("content")?.trim() || undefined;
-        }
-      },
-    })
+    .on(
+      'meta[name="twitter:title"], meta[property="twitter:title"]',
+      firstContent(titles, "twitter"),
+    )
+    .on(
+      'meta[name="twitter:description"], meta[property="twitter:description"]',
+      firstContent(descriptions, "twitter"),
+    )
     .on('meta[name="twitter:image"], meta[property="twitter:image"]', {
       element(el: Element) {
         if (!ogImageUrl) {
@@ -204,32 +216,16 @@ export async function fetchMetadata(urlString: string): Promise<BookmarkMetadata
     })
 
     // ── Standard HTML fallbacks ──────────────────────────────────────
-    .on('meta[name="description"]', {
-      element(el: Element) {
-        if (!metadata.description) {
-          metadata.description = el.getAttribute("content")?.trim() || undefined;
-        }
-      },
-    })
-    .on('meta[itemprop="description"]', {
-      element(el: Element) {
-        if (!metadata.description) {
-          metadata.description = el.getAttribute("content")?.trim() || undefined;
-        }
-      },
-    })
-    .on('meta[name="title"]', {
-      element(el: Element) {
-        if (!metadata.title) {
-          metadata.title = el.getAttribute("content")?.trim() || undefined;
-        }
-      },
-    })
+    .on('meta[name="description"]', firstContent(descriptions, "meta"))
+    .on('meta[itemprop="description"]', firstContent(descriptions, "itemprop"))
+    .on('meta[name="title"]', firstContent(titles, "meta"))
     .on("title", {
       text(text: Text) {
-        if (!metadata.title) {
-          const t = text.text.trim();
-          if (t) metadata.title = t;
+        if (titles.html !== undefined) return;
+        titleText += text.text;
+        if (text.lastInTextNode) {
+          titles.html = titleText.trim() || undefined;
+          titleText = "";
         }
       },
     })
@@ -262,6 +258,10 @@ export async function fetchMetadata(urlString: string): Promise<BookmarkMetadata
     });
 
   await rewriter.transform(response).text();
+
+  metadata.title = titles.og ?? titles.twitter ?? titles.meta ?? titles.html;
+  metadata.description =
+    descriptions.og ?? descriptions.twitter ?? descriptions.meta ?? descriptions.itemprop;
 
   // Resolve relative URLs
   metadata.image = resolveUrl(ogImageUrl, baseUrl);

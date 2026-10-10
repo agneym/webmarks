@@ -1,6 +1,17 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { fetchMetadata } from "../../src/lib/fetch-metadata";
 
+/** Serve `html` as the next fetch response and extract its metadata. */
+async function extract(html: string) {
+  vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+    new Response(`<!DOCTYPE html><html><head>${html}</head><body></body></html>`, {
+      status: 200,
+      headers: { "Content-Type": "text/html" },
+    }),
+  );
+  return fetchMetadata("https://example.com");
+}
+
 describe("fetchMetadata", () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -103,25 +114,43 @@ describe("fetchMetadata", () => {
     expect(result.title).toBe("Page Title");
   });
 
-  it("prefers og:title over <title>", async () => {
-    const html = `<!DOCTYPE html>
-<html>
-<head>
-  <meta property="og:title" content="OG Title" />
-  <title>HTML Title</title>
-</head>
-<body></body>
-</html>`;
+  it("prefers og:title over <title> regardless of order", async () => {
+    // Real pages usually put <title> first; document order must not decide.
+    const titleFirst = await extract(`
+      <title>HTML Title</title>
+      <meta property="og:title" content="OG Title" />`);
+    expect(titleFirst.title).toBe("OG Title");
 
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      new Response(html, {
-        status: 200,
-        headers: { "Content-Type": "text/html" },
-      }),
-    );
+    const ogFirst = await extract(`
+      <meta property="og:title" content="OG Title" />
+      <title>HTML Title</title>`);
+    expect(ogFirst.title).toBe("OG Title");
+  });
 
-    const result = await fetchMetadata("https://example.com");
-    expect(result.title).toBe("OG Title");
+  it("prefers meta[name=title] over <title> regardless of order", async () => {
+    const result = await extract(`
+      <title>HTML Title</title>
+      <meta name="title" content="Meta Title" />`);
+    expect(result.title).toBe("Meta Title");
+  });
+
+  it("prefers og:description over twitter:description over meta description, regardless of order", async () => {
+    const all = await extract(`
+      <meta name="description" content="Meta description" />
+      <meta itemprop="description" content="Itemprop description" />
+      <meta name="twitter:description" content="Twitter description" />
+      <meta property="og:description" content="OG description" />`);
+    expect(all.description).toBe("OG description");
+
+    const noOg = await extract(`
+      <meta name="description" content="Meta description" />
+      <meta name="twitter:description" content="Twitter description" />`);
+    expect(noOg.description).toBe("Twitter description");
+
+    const htmlOnly = await extract(`
+      <meta itemprop="description" content="Itemprop description" />
+      <meta name="description" content="Meta description" />`);
+    expect(htmlOnly.description).toBe("Meta description");
   });
 
   // ── Twitter Card fallback ────────────────────────────────────────────
@@ -186,25 +215,30 @@ describe("fetchMetadata", () => {
     expect(result.image).toBe("https://example.com/twitter-img.jpg");
   });
 
-  it("prefers og:title over twitter:title", async () => {
-    const html = `<!DOCTYPE html>
-<html>
-<head>
-  <meta property="og:title" content="OG Title" />
-  <meta name="twitter:title" content="Twitter Title" />
-</head>
-<body></body>
-</html>`;
+  it("prefers og:title over twitter:title regardless of order", async () => {
+    const twitterFirst = await extract(`
+      <meta name="twitter:title" content="Twitter Title" />
+      <meta property="og:title" content="OG Title" />`);
+    expect(twitterFirst.title).toBe("OG Title");
 
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      new Response(html, {
-        status: 200,
-        headers: { "Content-Type": "text/html" },
-      }),
-    );
+    const ogFirst = await extract(`
+      <meta property="og:title" content="OG Title" />
+      <meta name="twitter:title" content="Twitter Title" />`);
+    expect(ogFirst.title).toBe("OG Title");
+  });
 
-    const result = await fetchMetadata("https://example.com");
-    expect(result.title).toBe("OG Title");
+  it("prefers twitter:title over <title> regardless of order", async () => {
+    const result = await extract(`
+      <title>HTML Title</title>
+      <meta property="twitter:title" content="Twitter Title" />`);
+    expect(result.title).toBe("Twitter Title");
+  });
+
+  it("skips an empty og:title and falls back to the next source", async () => {
+    const result = await extract(`
+      <meta property="og:title" content="   " />
+      <title>HTML Title</title>`);
+    expect(result.title).toBe("HTML Title");
   });
 
   // ── Full metadata extraction ─────────────────────────────────────────
