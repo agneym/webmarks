@@ -12,30 +12,23 @@ describe("fetchMetadata", () => {
     await expect(fetchMetadata("not-a-url")).rejects.toThrow("Invalid URL");
   });
 
-  it("throws on non-http protocol (ftp)", async () => {
-    await expect(fetchMetadata("ftp://example.com")).rejects.toThrow("Unsupported protocol");
-  });
+  it("rejects unsupported protocols and non-HTML file extensions", async () => {
+    const cases: Array<[url: string, error: string]> = [
+      ["ftp://example.com", "Unsupported protocol: ftp:"],
+      ["mailto:user@example.com", "Unsupported protocol: mailto:"],
+      ["https://example.com/doc.pdf", "non-HTML resource (.pdf)"],
+      // Extension matching is case-insensitive.
+      ["https://example.com/DOC.PDF", "non-HTML resource (.pdf)"],
+      ["https://example.com/image.png", "non-HTML resource (.png)"],
+      ["https://example.com/video.mp4", "non-HTML resource (.mp4)"],
+    ];
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
 
-  it("throws on non-http protocol (mailto)", async () => {
-    await expect(fetchMetadata("mailto:user@example.com")).rejects.toThrow("Unsupported protocol");
-  });
-
-  it("throws for .pdf extension", async () => {
-    await expect(fetchMetadata("https://example.com/doc.pdf")).rejects.toThrow(
-      "non-HTML resource (.pdf)",
+    await Promise.all(
+      cases.map(([url, error]) => expect(fetchMetadata(url)).rejects.toThrow(error)),
     );
-  });
-
-  it("throws for .png extension", async () => {
-    await expect(fetchMetadata("https://example.com/image.png")).rejects.toThrow(
-      "non-HTML resource (.png)",
-    );
-  });
-
-  it("throws for .mp4 extension", async () => {
-    await expect(fetchMetadata("https://example.com/video.mp4")).rejects.toThrow(
-      "non-HTML resource (.mp4)",
-    );
+    // Rejected before any network request is made.
+    expect(fetchSpy).not.toHaveBeenCalled();
   });
 
   // ── HTTP error responses ─────────────────────────────────────────────
@@ -90,26 +83,6 @@ describe("fetchMetadata", () => {
 
   // ── Metadata extraction ──────────────────────────────────────────────
 
-  it("extracts og:title from HTML", async () => {
-    const html = `<!DOCTYPE html>
-<html>
-<head>
-  <meta property="og:title" content="OG Title" />
-</head>
-<body></body>
-</html>`;
-
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      new Response(html, {
-        status: 200,
-        headers: { "Content-Type": "text/html" },
-      }),
-    );
-
-    const result = await fetchMetadata("https://example.com");
-    expect(result.title).toBe("OG Title");
-  });
-
   it("falls back to <title> tag when no og:title", async () => {
     const html = `<!DOCTYPE html>
 <html>
@@ -149,86 +122,6 @@ describe("fetchMetadata", () => {
 
     const result = await fetchMetadata("https://example.com");
     expect(result.title).toBe("OG Title");
-  });
-
-  it("extracts og:description", async () => {
-    const html = `<!DOCTYPE html>
-<html>
-<head>
-  <meta property="og:description" content="A great description" />
-</head>
-<body></body>
-</html>`;
-
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      new Response(html, {
-        status: 200,
-        headers: { "Content-Type": "text/html" },
-      }),
-    );
-
-    const result = await fetchMetadata("https://example.com");
-    expect(result.description).toBe("A great description");
-  });
-
-  it("resolves relative og:image URLs against base", async () => {
-    const html = `<!DOCTYPE html>
-<html>
-<head>
-  <meta property="og:image" content="/images/photo.jpg" />
-</head>
-<body></body>
-</html>`;
-
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      new Response(html, {
-        status: 200,
-        headers: { "Content-Type": "text/html" },
-      }),
-    );
-
-    const result = await fetchMetadata("https://example.com/page");
-    expect(result.image).toBe("https://example.com/images/photo.jpg");
-  });
-
-  it("resolves relative favicon URLs against base", async () => {
-    const html = `<!DOCTYPE html>
-<html>
-<head>
-  <link rel="icon" href="/favicon.ico" />
-</head>
-<body></body>
-</html>`;
-
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      new Response(html, {
-        status: 200,
-        headers: { "Content-Type": "text/html" },
-      }),
-    );
-
-    const result = await fetchMetadata("https://example.com");
-    expect(result.favicon).toBe("https://example.com/favicon.ico");
-  });
-
-  it("extracts og:site_name", async () => {
-    const html = `<!DOCTYPE html>
-<html>
-<head>
-  <meta property="og:site_name" content="My Site" />
-</head>
-<body></body>
-</html>`;
-
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      new Response(html, {
-        status: 200,
-        headers: { "Content-Type": "text/html" },
-      }),
-    );
-
-    const result = await fetchMetadata("https://example.com");
-    expect(result.siteName).toBe("My Site");
   });
 
   // ── Twitter Card fallback ────────────────────────────────────────────

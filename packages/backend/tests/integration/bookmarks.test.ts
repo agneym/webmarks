@@ -262,7 +262,9 @@ describe("GET /api/bookmarks", () => {
     expect(body.error).toMatch(/sort/i);
   });
 
-  it("sorts by newest (default), oldest, title, and updated", async () => {
+  it("sorts newest first when no sort param is given", async () => {
+    // Every explicit sort (and its paging) is covered by the cursor-walk test;
+    // this pins down which one applies by default.
     await seedAndTrack({
       id: "bm-sort-a",
       url: "https://a.example.com",
@@ -288,39 +290,11 @@ describe("GET /api/bookmarks", () => {
       updatedAt: 4000,
     });
 
-    const newest = await app.request("/api/bookmarks", undefined, env as any);
-    expect(((await newest.json()) as any).bookmarks.map((b: any) => b.id)).toEqual([
+    const res = await app.request("/api/bookmarks", undefined, env as any);
+    expect(((await res.json()) as any).bookmarks.map((b: any) => b.id)).toEqual([
       "bm-sort-b",
       "bm-sort-c",
       "bm-sort-a",
-    ]);
-
-    const oldest = await app.request("/api/bookmarks?sort=oldest", undefined, env as any);
-    expect(((await oldest.json()) as any).bookmarks.map((b: any) => b.id)).toEqual([
-      "bm-sort-a",
-      "bm-sort-c",
-      "bm-sort-b",
-    ]);
-
-    const title = await app.request("/api/bookmarks?sort=title", undefined, env as any);
-    expect(((await title.json()) as any).bookmarks.map((b: any) => b.title)).toEqual([
-      "Alpha",
-      "Bravo",
-      "Charlie",
-    ]);
-
-    const titleDesc = await app.request("/api/bookmarks?sort=title_desc", undefined, env as any);
-    expect(((await titleDesc.json()) as any).bookmarks.map((b: any) => b.title)).toEqual([
-      "Charlie",
-      "Bravo",
-      "Alpha",
-    ]);
-
-    const updated = await app.request("/api/bookmarks?sort=updated", undefined, env as any);
-    expect(((await updated.json()) as any).bookmarks.map((b: any) => b.id)).toEqual([
-      "bm-sort-a",
-      "bm-sort-c",
-      "bm-sort-b",
     ]);
   });
 });

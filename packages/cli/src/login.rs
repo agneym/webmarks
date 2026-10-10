@@ -243,9 +243,16 @@ mod tests {
     }
 
     #[test]
-    fn slow_down_increases_interval_by_five() {
-        let d = decision(400, r#"{"error":"slow_down"}"#, 5);
-        assert_eq!(d, PollDecision::SlowDown { interval: 10 });
+    fn slow_down_adds_five_to_the_current_interval() {
+        assert_eq!(
+            decision(400, r#"{"error":"slow_down"}"#, 5),
+            PollDecision::SlowDown { interval: 10 }
+        );
+        // Grows from whatever interval is passed in, not a fixed base.
+        assert_eq!(
+            decision(400, r#"{"error":"slow_down"}"#, 15),
+            PollDecision::SlowDown { interval: 20 }
+        );
     }
 
     #[test]
@@ -285,14 +292,5 @@ mod tests {
     fn unparsable_error_body_is_fatal() {
         let d = decision(403, "<html>nope</html>", 5);
         assert!(matches!(d, PollDecision::Fatal(_)));
-    }
-
-    #[test]
-    fn slow_down_accumulates_from_current_interval() {
-        // Two slow_downs in a row must keep growing, not reset to base+5.
-        assert_eq!(
-            decision(400, r#"{"error":"slow_down"}"#, 15),
-            PollDecision::SlowDown { interval: 20 }
-        );
     }
 }

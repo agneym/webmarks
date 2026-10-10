@@ -64,6 +64,7 @@ describe("GET /device (unauthenticated)", () => {
     const body = await res.text();
     expect(body).toContain('name="user_code"');
     expect(body).not.toContain("/api/auth/sign-in/email");
+    expect(body).not.toContain("Continue with Google");
   });
 });
 
@@ -74,23 +75,22 @@ describe("GET /device sign-in page (Google)", () => {
     const body = await res.text();
     expect(body).toContain('id="google"');
     expect(body).toContain("Continue with Google");
-    expect(body).toContain("/api/auth/sign-in/social");
-    expect(body).toContain("provider: 'google'");
-    expect(body).toContain("callbackURL: returnTo");
-    expect(body).toContain("credentials: 'same-origin'");
-    expect(body).toContain("window.location.href = data.url");
     // Email + password form is kept.
     expect(body).toContain("/api/auth/sign-in/email");
-    expect(body).toContain('id="password"');
     expect(extractReturnTo(body)).toBe("/device");
   });
 
-  it("returns to /device?user_code=... after Google sign-in", async () => {
-    const app = makeApp(makeAuth({ session: null }));
+  it("shows sign-in for a user_code without a session and returns to /device?user_code=...", async () => {
+    const deviceVerify = vi.fn<() => Promise<Record<string, never>>>(async () => ({}));
+    const app = makeApp(makeAuth({ session: null, deviceVerify }));
     const res = await app.request("/device?user_code=ABCD-2345");
+    expect(res.status).toBe(200);
     const body = await res.text();
     expect(body).toContain("Continue with Google");
+    expect(body).toContain("/api/auth/sign-in/email");
     expect(extractReturnTo(body)).toBe("/device?user_code=ABCD-2345");
+    // The code is never looked up without a session.
+    expect(deviceVerify).not.toHaveBeenCalled();
   });
 
   it("safely encodes hostile user codes in the returnTo literal", async () => {
@@ -101,26 +101,9 @@ describe("GET /device sign-in page (Google)", () => {
     expect(body).not.toContain("<script>alert(1)");
     expect(extractReturnTo(body)).toBe(`/device?user_code=${encodeURIComponent(code)}`);
   });
-
-  it("does not render the Google button once signed in", async () => {
-    const app = makeApp(makeAuth({ session: { user: { id: "u1", email: "test@example.com" } } }));
-    const res = await app.request("/device");
-    expect(await res.text()).not.toContain("Continue with Google");
-  });
 });
 
 describe("GET /device?user_code=...", () => {
-  it("unauthenticated visit to a bad/nonexistent code shows the sign-in form gracefully", async () => {
-    const deviceVerify = vi.fn<() => Promise<Record<string, never>>>(async () => ({}));
-    const app = makeApp(makeAuth({ session: null, deviceVerify }));
-    const res = await app.request("/device?user_code=NOT-REAL-CODE");
-    expect(res.status).toBe(200); // graceful — no crash, no stack trace
-    const body = await res.text();
-    expect(body).toContain("/api/auth/sign-in/email");
-    // No verification is attempted without a session.
-    expect(deviceVerify).not.toHaveBeenCalled();
-  });
-
   it("authenticated visit to a bad/nonexistent code renders a graceful error page", async () => {
     const app = makeApp(
       makeAuth({

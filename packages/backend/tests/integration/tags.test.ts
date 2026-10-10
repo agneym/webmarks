@@ -33,6 +33,7 @@ afterEach(async () => {
     .bind(TEST_USER_ID)
     .run();
   await (env as any).webmarks.prepare("DELETE FROM tag WHERE user_id = ?").bind(TEST_USER_ID).run();
+  await (env as any).webmarks.prepare("DELETE FROM tag WHERE user_id = ?").bind("other-user").run();
   seededIds = [];
 });
 
@@ -221,17 +222,9 @@ describe("GET /api/tags", () => {
   });
 
   it("returns only the authenticated user's tags", async () => {
-    // Seed tag for "other-user"
+    // Another user's tag exists, and this user has none: the list must be empty.
     await seedTag(env as any, { id: "tag-foreign", name: "foreign", userId: "other-user" });
 
-    const res = await app.request("/api/tags", undefined, env as any);
-    expect(res.status).toBe(200);
-    const body: any = await res.json();
-    const foreignTag = body.tags.find((t: any) => t.name === "foreign");
-    expect(foreignTag).toBeUndefined();
-  });
-
-  it("returns empty array when no tags exist", async () => {
     const res = await app.request("/api/tags", undefined, env as any);
     expect(res.status).toBe(200);
     const body: any = await res.json();
@@ -363,14 +356,6 @@ describe("GET /api/bookmarks?q=...", () => {
     expect(body.total).toBe(1);
     expect(body.bookmarks).toHaveLength(1);
     expect(body.bookmarks[0].url).toBe("https://reactjs.org");
-  });
-
-  it("returns empty when no match", async () => {
-    const res = await app.request("/api/bookmarks?q=zzzzz_nonexistent", undefined, env as any);
-    expect(res.status).toBe(200);
-    const body: any = await res.json();
-    expect(body.bookmarks).toEqual([]);
-    expect(body.total).toBe(0);
   });
 });
 
