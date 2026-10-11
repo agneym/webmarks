@@ -1,3 +1,4 @@
 [tools]
 bun = "latest"
 hk = "latest"
+node = "24"

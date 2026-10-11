@@ -22,7 +22,7 @@ Live API: <https://backend.quickread.workers.dev> (OpenAPI spec at [`/openapi.js
 
 ## Local development
 
-Requires [mise](https://mise.jdx.dev) (installs Bun and hk from `mise.toml`), Node 24 (wrangler and the Workers test pool run on Node) and, for the CLI, a Rust toolchain.
+Requires [mise](https://mise.jdx.dev), which installs Bun, hk and Node 24 (wrangler and the Workers test pool run on Node) from `mise.toml`, and, for the CLI, a Rust toolchain.
 
 ```sh
 mise install
@@ -77,12 +77,10 @@ Because migrations go out just before the new code, keep them backward-compatibl
 cargo install --path packages/cli            # or: cd packages/cli && cargo build --release
 ```
 
-The CLI defaults to `http://localhost:8787`. Point it at production with `--base-url` (per command) or `WEBMARKS_BASE_URL`:
+`webmarks login` saves the server it signed in to, so later commands use it without extra flags. The base URL resolves as `--base-url` > `WEBMARKS_BASE_URL` > the saved login server > `http://localhost:8787`. If that resolves to a server other than the one the saved token came from, the CLI refuses to send the token (exit 1, `BASE_URL_MISMATCH`) rather than leak it; log in to that server or drop the override.
 
 ```sh
-export WEBMARKS_BASE_URL=https://backend.quickread.workers.dev
-
-webmarks login                               # device flow; --no-open prints the URL
+webmarks login --base-url https://backend.quickread.workers.dev   # device flow; --no-open prints the URL
 webmarks whoami
 webmarks add https://example.com --visibility private
 webmarks list -q rust --tag work --limit 20  # also --status, --visibility, --sort, --cursor
@@ -97,7 +95,7 @@ webmarks logout
 
 Add `--json` to any command for machine-readable output. Exit codes: 0 success, 1 API error, 2 not found, 3 auth required, 4 network.
 
-The session token is stored in `<config dir>/webmarks/config.json` (`~/.config/webmarks/config.json` on Linux, `~/Library/Application Support/webmarks/config.json` on macOS) with `0600` permissions.
+The session token and its server are stored in `<config dir>/webmarks/config.json` (`~/.config/webmarks/config.json` on Linux, `~/Library/Application Support/webmarks/config.json` on macOS) with `0600` permissions.
 
 ## Image backfill
 
