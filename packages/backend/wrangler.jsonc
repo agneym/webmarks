@@ -53,7 +53,7 @@
       },
     ],
   },
-  // Workers AI: writes the image subject (text model) and draws the image (FLUX.2 klein).
+  // Workers AI: writes the image subject (Gemma 4) and draws the image (FLUX.2 klein).
   "ai": {
     "binding": "AI",
   },

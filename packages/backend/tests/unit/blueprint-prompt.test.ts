@@ -1,9 +1,8 @@
-import { describe, it, expect, vi, afterEach } from "vitest";
+import { describe, it, expect } from "vitest";
 import {
   MAX_SUBJECT_LENGTH,
   buildImagePrompt,
   buildSubjectMessages,
-  fallbackSubject,
   sanitizeSubject,
 } from "../../src/lib/blueprint-prompt";
 import { completionText, writeSubject } from "../../src/lib/blueprint-image";
@@ -53,30 +52,6 @@ describe("sanitizeSubject", () => {
   });
 });
 
-describe("fallbackSubject", () => {
-  it("uses the motif of the first tag that has one", () => {
-    expect(fallbackSubject({ url: "https://x.dev/a", tags: ["obscure", "Databases"] })).toBe(
-      "Subject: a cutaway of stacked database cylinders with drawers pulled out to reveal page slots.",
-    );
-  });
-
-  it("never puts raw tag names in the prompt and is stable for the same bookmark", () => {
-    const source = { url: "https://ziglang.org/learn", tags: ["zig", "comptime"] };
-    const subject = fallbackSubject(source);
-
-    expect(subject).not.toMatch(/zig|comptime/i);
-    expect(fallbackSubject(source)).toBe(subject);
-  });
-
-  it("produces subjects that pass the same sanitization as model output", () => {
-    const tags = ["javascript", "typescript", "async", "react", "css", "performance", "rust", "ai"];
-    const subjects = [...tags, "unknown"].map((t) =>
-      fallbackSubject({ url: `https://example.com/${t}`, tags: [t] }),
-    );
-    expect(subjects.map(sanitizeSubject)).toEqual(subjects);
-  });
-});
-
 describe("buildSubjectMessages", () => {
   it("gives the model title, description, tags and URL slug, with the description capped", () => {
     const [system, user] = buildSubjectMessages({
@@ -110,22 +85,23 @@ describe("buildImagePrompt", () => {
 
 describe("writeSubject", () => {
   const source = { url: "https://example.com/db", title: "Indexes", tags: ["databases"] };
-  const tagFallback = fallbackSubject(source);
-
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
 
   it("returns the sanitized model subject", async () => {
-    const { ai } = createFakeAi({ subject: 'Subject: "a card catalogue drawer on rails".' });
+    const { ai, run } = createFakeAi({ subject: 'Subject: "a card catalogue drawer on rails".' });
     expect(await writeSubject(ai, source)).toBe("Subject: a card catalogue drawer on rails.");
+    expect(run.mock.calls[0]?.[1]).toMatchObject({
+      chat_template_kwargs: { enable_thinking: false },
+    });
   });
 
-  it("falls back to the tag subject when the model call fails", async () => {
-    vi.spyOn(console, "warn").mockImplementation(() => {});
-    const run = vi.fn<() => Promise<never>>().mockRejectedValue(new Error("rate limited"));
-    const ai = { run } as unknown as Ai;
-    expect(await writeSubject(ai, source)).toBe(tagFallback);
+  it("throws when the model output is unusable", async () => {
+    const { ai } = createFakeAi({ subject: "" });
+    await expect(writeSubject(ai, source)).rejects.toThrow(/unusable subject/);
+  });
+
+  it("throws when the model call fails", async () => {
+    const { ai } = createFakeAi({ failText: true });
+    await expect(writeSubject(ai, source)).rejects.toThrow("text model unavailable");
   });
 });
 

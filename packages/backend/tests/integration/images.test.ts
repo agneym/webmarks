@@ -5,6 +5,7 @@ import { seedBookmark, seedUser } from "../helpers/seed";
 import { applyMigrations } from "../helpers/migrations";
 import { createFakeAi, FAKE_JPEG } from "../helpers/fake-ai";
 import { generatedImageKey } from "../../src/lib/blueprint-image";
+import { genericImageUrl } from "../../src/lib/generic-image";
 
 // Own users so cleanup can't touch rows other test files rely on.
 const USER_ID = "images-test-user";
@@ -59,6 +60,23 @@ describe("GET /images/generated/:id.jpg", () => {
       ),
     );
     expect(responses.map((r) => r.status)).toEqual([404, 404]);
+  });
+});
+
+describe("GET /images/generic.svg", () => {
+  it("serves the generic blueprint as an SVG with no text", async () => {
+    const res = await createTestApp({ authenticated: false }).request(
+      "/images/generic.svg",
+      {},
+      env as any,
+    );
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Content-Type")).toBe("image/svg+xml; charset=utf-8");
+    expect(res.headers.get("Cache-Control")).toBe("public, max-age=86400");
+    const svg = await res.text();
+    expect(svg).toMatch(/^<svg [^>]*viewBox="0 0 768 432"/);
+    expect(svg).not.toMatch(/<text|<script/);
   });
 });
 
@@ -156,10 +174,11 @@ describe("POST /api/admin/backfill-images", () => {
     ]);
   });
 
-  it("reports a failed generation and leaves that bookmark for the next run", async () => {
+  it("gives a bookmark whose generation fails the generic image, so it isn't retried", async () => {
     await seedBookmark(env as any, { id: "bf-fail", url: "https://a.dev/f", userId: USER_ID });
-    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(console, "warn").mockImplementation(() => {});
     const { ai } = createFakeAi({ failImage: true });
+    const generic = genericImageUrl((env as any).BETTER_AUTH_URL);
 
     const res = await owner.request(
       "/api/admin/backfill-images",
@@ -169,9 +188,13 @@ describe("POST /api/admin/backfill-images", () => {
 
     const body: any = await res.json();
     expect(body.results).toEqual([
-      { id: "bf-fail", status: "failed", error: "image model unavailable" },
+      { id: "bf-fail", status: "generic", image: generic, error: "image model unavailable" },
     ]);
-    expect(body.remaining).toBe(1);
+    expect(body.remaining).toBe(0);
+    const row: any = await db()
+      .prepare("SELECT image, image_generated FROM bookmark WHERE id = 'bf-fail'")
+      .first();
+    expect(row).toEqual({ image: generic, image_generated: 1 });
   });
 
   it("rejects a limit outside 1-20", async () => {

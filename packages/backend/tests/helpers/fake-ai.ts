@@ -8,6 +8,8 @@ const FAKE_JPEG_BASE64 = btoa(String.fromCharCode(...FAKE_JPEG));
 interface FakeAiOptions {
   /** What the text model "says". */
   subject?: string;
+  /** Make the text model throw. */
+  failText?: boolean;
   /** Make the image model throw. */
   failImage?: boolean;
 }
@@ -19,6 +21,7 @@ interface FakeAiOptions {
 export function createFakeAi(opts: FakeAiOptions = {}) {
   const run = vi.fn<(model: string, input: unknown) => Promise<unknown>>(async (model) => {
     if (model === TEXT_MODEL) {
+      if (opts.failText) throw new Error("text model unavailable");
       const content = opts.subject ?? "Subject: a brass gear train meshing with a ratchet.";
       // Gemma 4 answers in the OpenAI chat-completions shape.
       return { choices: [{ index: 0, message: { role: "assistant", content } }] };

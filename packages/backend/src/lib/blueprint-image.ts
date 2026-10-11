@@ -4,10 +4,10 @@ import { bookmark, bookmarkTag, tag } from "../db/schema";
 import {
   buildImagePrompt,
   buildSubjectMessages,
-  fallbackSubject,
   sanitizeSubject,
   type SubjectSource,
 } from "./blueprint-prompt";
+import { genericImageUrl } from "./generic-image";
 
 export const TEXT_MODEL = "@cf/google/gemma-4-26b-a4b-it";
 export const IMAGE_MODEL = "@cf/black-forest-labs/flux-2-klein-4b";
@@ -35,24 +35,24 @@ export function generatedImageUrl(baseUrl: string, bookmarkId: string): string {
   return new URL(`/images/generated/${encodeURIComponent(bookmarkId)}.jpg`, baseUrl).toString();
 }
 
-/** Ask the text model for a subject sentence; fall back to tags on any failure. */
+/**
+ * Ask the text model for a subject sentence. Throws when the call fails or
+ * its output is unusable; the caller then uses the generic image instead.
+ */
 export async function writeSubject(ai: Ai, source: SubjectSource): Promise<string> {
-  try {
-    const result = await ai.run(TEXT_MODEL, {
-      messages: buildSubjectMessages(source),
-      max_completion_tokens: 96,
-      temperature: 0.5,
-      // One short sentence; thinking would only add latency and output tokens.
-      chat_template_kwargs: { enable_thinking: false },
-    });
-    const raw = completionText(result);
-    const subject = sanitizeSubject(raw);
-    if (subject) return subject;
-    console.warn(`Unusable image subject from ${TEXT_MODEL}, using tag fallback:`, raw);
-  } catch (err) {
-    console.warn(`Subject generation failed, using tag fallback:`, err);
+  const result = await ai.run(TEXT_MODEL, {
+    messages: buildSubjectMessages(source),
+    max_completion_tokens: 96,
+    temperature: 0.5,
+    // One short sentence; thinking would only add latency and output tokens.
+    chat_template_kwargs: { enable_thinking: false },
+  });
+  const raw = completionText(result);
+  const subject = sanitizeSubject(raw);
+  if (!subject) {
+    throw new Error(`${TEXT_MODEL} returned an unusable subject: ${JSON.stringify(raw)}`);
   }
-  return fallbackSubject(source);
+  return subject;
 }
 
 /**
@@ -126,49 +126,62 @@ export async function deleteGeneratedImage(images: R2Bucket, bookmarkId: string)
 
 export type EnsureImageResult =
   | { id: string; status: "generated"; image: string }
+  | { id: string; status: "generic"; image: string; error: string }
   | { id: string; status: "skipped" }
   | { id: string; status: "failed"; error: string };
 
 /**
- * Generate and save a blueprint for a bookmark that has no image. Never
- * throws: a failure is logged and reported, and the bookmark keeps image null.
+ * Give a bookmark that has no image a blueprint. If either model fails (or
+ * the text model says nothing usable), the bookmark gets the generic image
+ * instead; there is no second attempt at generating one. Never throws: if
+ * even the generic image can't be saved, that is logged and reported, and
+ * the bookmark keeps image null.
  */
 export async function ensureBlueprintImage(
   env: ImageEnv,
   db: Database,
   bookmarkId: string,
 ): Promise<EnsureImageResult> {
-  const [row] = await db
-    .select({
-      id: bookmark.id,
-      url: bookmark.url,
-      title: bookmark.title,
-      description: bookmark.description,
-      image: bookmark.image,
-    })
-    .from(bookmark)
-    .where(eq(bookmark.id, bookmarkId))
-    .limit(1);
-  // Deleted meanwhile, or it already has an image (real or generated).
-  if (!row || row.image) return { id: bookmarkId, status: "skipped" };
-
   try {
-    const tags = await db
-      .select({ name: tag.name })
-      .from(bookmarkTag)
-      .innerJoin(tag, eq(bookmarkTag.tagId, tag.id))
-      .where(eq(bookmarkTag.bookmarkId, bookmarkId));
+    const [row] = await db
+      .select({
+        id: bookmark.id,
+        url: bookmark.url,
+        title: bookmark.title,
+        description: bookmark.description,
+        image: bookmark.image,
+      })
+      .from(bookmark)
+      .where(eq(bookmark.id, bookmarkId))
+      .limit(1);
+    // Deleted meanwhile, or it already has an image (real, generated or generic).
+    if (!row || row.image) return { id: bookmarkId, status: "skipped" };
 
-    const image = await generateBlueprintImage(env, { ...row, tags: tags.map((t) => t.name) });
+    let image: string;
+    let failure: string | undefined;
+    try {
+      const tags = await db
+        .select({ name: tag.name })
+        .from(bookmarkTag)
+        .innerJoin(tag, eq(bookmarkTag.tagId, tag.id))
+        .where(eq(bookmarkTag.bookmarkId, bookmarkId));
+      image = await generateBlueprintImage(env, { ...row, tags: tags.map((t) => t.name) });
+    } catch (err) {
+      failure = err instanceof Error ? err.message : String(err);
+      console.warn(`Blueprint generation failed for ${bookmarkId}, using the generic image:`, err);
+      image = genericImageUrl(env.BETTER_AUTH_URL);
+    }
 
     // Only fill an empty slot, so a real og:image that landed meanwhile wins.
     await db
       .update(bookmark)
       .set({ image, imageGenerated: true })
       .where(and(eq(bookmark.id, bookmarkId), isNull(bookmark.image)));
-    return { id: bookmarkId, status: "generated", image };
+    return failure === undefined
+      ? { id: bookmarkId, status: "generated", image }
+      : { id: bookmarkId, status: "generic", image, error: failure };
   } catch (err) {
-    console.error(`Blueprint image generation failed for ${bookmarkId}:`, err);
+    console.error(`Could not save an image for ${bookmarkId}:`, err);
     return {
       id: bookmarkId,
       status: "failed",

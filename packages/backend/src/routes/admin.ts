@@ -18,7 +18,7 @@ const MAX_BACKFILL_LIMIT = 20;
 const BackfillResultSchema = z
   .object({
     id: z.string(),
-    status: z.enum(["generated", "skipped", "failed"]),
+    status: z.enum(["generated", "generic", "skipped", "failed"]),
     image: z.string().optional(),
     error: z.string().optional(),
   })
@@ -32,7 +32,8 @@ const backfillImagesRoute = createRoute({
   description:
     "Generate blueprint images for the owner's bookmarks that have no image, oldest first. " +
     "Idempotent: bookmarks that already have an image are never touched, so call it again " +
-    "until `remaining` is 0. Bookmarks whose generation fails stay without an image and are " +
+    "until `remaining` is 0. A bookmark whose generation fails gets the generic image " +
+    "(status `generic`); only one whose image couldn't be saved at all (`failed`) is " +
     "retried on the next call.",
   request: {
     query: z.object({

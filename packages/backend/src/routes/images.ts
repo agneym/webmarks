@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { GENERATED_IMAGE_CACHE_CONTROL, generatedImageKey } from "../lib/blueprint-image";
+import { GENERIC_IMAGE_CACHE_CONTROL, GENERIC_IMAGE_SVG } from "../lib/generic-image";
 
 const images = new Hono<{ Bindings: CloudflareBindings }>();
 
@@ -23,6 +24,14 @@ images.get("/generated/:file", async (c) => {
       "Cache-Control": GENERATED_IMAGE_CACHE_CONTROL,
       ETag: object.httpEtag,
     },
+  });
+});
+
+// GET /images/generic.svg — shown for bookmarks whose blueprint couldn't be generated.
+images.get("/generic.svg", (c) => {
+  return c.body(GENERIC_IMAGE_SVG, 200, {
+    "Content-Type": "image/svg+xml; charset=utf-8",
+    "Cache-Control": GENERIC_IMAGE_CACHE_CONTROL,
   });
 });
 

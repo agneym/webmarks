@@ -5,6 +5,7 @@ import { seedUser, seedBookmark } from "../helpers/seed";
 import { applyMigrations } from "../helpers/migrations";
 import { createFakeAi, FAKE_JPEG, imageRequestForm } from "../helpers/fake-ai";
 import { IMAGE_MODEL, generatedImageKey } from "../../src/lib/blueprint-image";
+import { genericImageUrl } from "../../src/lib/generic-image";
 
 const TEST_USER_ID = "test-user-queue";
 const TEST_EMAIL = "queue-test@example.com";
@@ -269,21 +270,47 @@ describe("handleQueue", () => {
       expect(aiRun).not.toHaveBeenCalled();
     });
 
-    it("acks without retrying and leaves image null when generation fails", async () => {
-      await seedForImage("bm-gen-fail");
-      servePage(`<meta property="og:title" content="Has a title" />`);
-      vi.spyOn(console, "error").mockImplementation(() => {});
-      const { ai } = createFakeAi({ failImage: true });
+    it.each([
+      ["the image model fails", { failImage: true }, 1],
+      ["the text model fails", { failText: true }, 0],
+      ["the text model says nothing usable", { subject: "" }, 0],
+    ])(
+      "acks without retrying and uses the generic image when %s",
+      async (_case, aiOptions, imageCalls) => {
+        await seedForImage("bm-gen-fail");
+        servePage(`<meta property="og:title" content="Has a title" />`);
+        vi.spyOn(console, "warn").mockImplementation(() => {});
+        const { ai, run: aiRun } = createFakeAi(aiOptions);
 
-      const msg = await runConsumer("bm-gen-fail", ai);
+        const msg = await runConsumer("bm-gen-fail", ai);
 
-      const row = await readBookmark("bm-gen-fail");
-      expect(row.fetch_status).toBe("success");
-      expect(row.title).toBe("Has a title");
-      expect(row.image).toBeNull();
+        const row = await readBookmark("bm-gen-fail");
+        expect(row.fetch_status).toBe("success");
+        expect(row.title).toBe("Has a title");
+        expect(row.image).toBe(genericImageUrl((env as any).BETTER_AUTH_URL));
+        expect(row.image_generated).toBe(1);
+        expect(await images().head(generatedImageKey("bm-gen-fail"))).toBeNull();
+        expect(msg.ack).toHaveBeenCalledOnce();
+        expect(msg.retry).not.toHaveBeenCalled();
+        // One attempt at most; a failed text model means no image call at all.
+        expect(aiRun.mock.calls.filter(([model]) => model === IMAGE_MODEL)).toHaveLength(
+          imageCalls,
+        );
+      },
+    );
+
+    it("replaces the generic image with a real og:image found on refetch", async () => {
+      const generic = genericImageUrl((env as any).BETTER_AUTH_URL);
+      await seedForImage("bm-generic-replace", { image: generic, imageGenerated: true });
+      servePage(`<meta property="og:image" content="https://example.com/real.png" />`);
+      const { ai, run: aiRun } = createFakeAi();
+
+      await runConsumer("bm-generic-replace", ai);
+
+      const row = await readBookmark("bm-generic-replace");
+      expect(row.image).toBe("https://example.com/real.png");
       expect(row.image_generated).toBe(0);
-      expect(msg.ack).toHaveBeenCalledOnce();
-      expect(msg.retry).not.toHaveBeenCalled();
+      expect(aiRun).not.toHaveBeenCalled();
     });
 
     it("still generates an image once the metadata fetch has finally failed", async () => {

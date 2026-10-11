@@ -2,10 +2,10 @@
  * Prompt building for generated "blueprint" bookmark images.
  *
  * The image prompt is a fixed style prefix plus one subject sentence. The
- * subject is written by a small text model from the bookmark's title,
- * description and tags; its output is sanitized here, and a deterministic
- * tag-based subject is used whenever the model fails or says something we
- * can't use.
+ * subject is written by a text model from the bookmark's title,
+ * description and tags, and its output is cleaned up here. When the model
+ * fails or says nothing usable, no image is generated: the bookmark gets the
+ * generic image instead (see generic-image.ts).
  */
 
 /** Fixed style prefix. Kept verbatim: it is what produced the reference samples. */
@@ -106,59 +106,6 @@ export function sanitizeSubject(raw: unknown): string | null {
 
   if (text.length < MIN_SUBJECT_LENGTH) return null;
   return `Subject: ${text}.`;
-}
-
-// Motifs for common tags. Raw tag names are never put in the image prompt:
-// a bare word like "javascript" invites the model to draw a logo.
-const TAG_MOTIFS: Record<string, string> = {
-  javascript:
-    "a mechanical event loop, a circular conveyor carrying small task boxes past a row of meshing gears",
-  typescript: "a set of precision-machined blocks with keyed edges that only fit together one way",
-  async: "parallel conveyor belts carrying capsules that merge through a single timed sorting gate",
-  react: "a central component housing with smaller identical modules orbiting it on linked rings",
-  css: "a drafting table with nested rectangular frames aligned on an adjustable layout grid",
-  html: "a nested set of open boxes, each one fitted precisely inside the next",
-  performance: "an exposed stopwatch mechanism with a centrifugal speed governor and gear train",
-  databases: "a cutaway of stacked database cylinders with drawers pulled out to reveal page slots",
-  database: "a cutaway of stacked database cylinders with drawers pulled out to reveal page slots",
-  sql: "a cutaway of stacked database cylinders with drawers pulled out to reveal page slots",
-  "system-design":
-    "an exploded isometric diagram of modular server racks linked by connector pipes",
-  "distributed-systems":
-    "identical machines on separate pedestals connected by synchronized cables and pulleys",
-  networking: "a switchboard junction with cables fanning out to small relay stations",
-  security: "a cutaway of a heavy vault lock showing its tumblers, bolts and cam",
-  rust: "a heavy-duty sealed gearbox with an interlocking safety latch",
-  ai: "a mechanical loom weaving many input threads into a single patterned cloth",
-  learning: "an open hardbound book whose pages unfold into interlocking puzzle blocks",
-  design: "a drafting compass and set squares arranged over a precisely ruled construction",
-  tools: "a neatly arranged toolbox opened in tiers, each tool seated in its own slot",
-  testing: "a calibration rig holding a small part between gauges and a micrometer",
-};
-
-const GENERIC_MOTIFS = [
-  "an exploded isometric view of a precision instrument assembled from modular parts",
-  "a cutaway of a clockwork mechanism with gears, springs and an escapement",
-  "a modular machine on a workbench, its panels lifted to show the parts inside",
-  "an isometric assembly of connected chambers and pipes with valves between them",
-];
-
-/** Deterministic subject from tags, for when the text model can't be used. */
-export function fallbackSubject(source: SubjectSource): string {
-  for (const name of source.tags) {
-    const motif = TAG_MOTIFS[name.trim().toLowerCase()];
-    if (motif) return `Subject: ${motif}.`;
-  }
-  const seed = `${source.url}|${source.tags.join(",")}`;
-  return `Subject: ${GENERIC_MOTIFS[hash(seed) % GENERIC_MOTIFS.length]}.`;
-}
-
-function hash(value: string): number {
-  let h = 0;
-  for (let i = 0; i < value.length; i++) {
-    h = (Math.imul(h, 31) + value.charCodeAt(i)) >>> 0;
-  }
-  return h;
 }
 
 /** The full image prompt: the fixed style, then the subject sentence. */
