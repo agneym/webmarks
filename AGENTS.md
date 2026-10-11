@@ -1,1 +1,1 @@
-Package manager: bun
+Package manager: pnpm

@@ -19,14 +19,14 @@ Without a session, only public bookmarks and their tags are returned.
 
 ## Scripts
 
-| Script                                           | Does                                                         |
-| ------------------------------------------------ | ------------------------------------------------------------ |
-| `bun run dev` / `dev:pretty`                     | `wrangler dev` (optionally piped through pino-pretty)        |
-| `bun run test` / `test:watch`                    | vitest in the Workers pool (local bindings, fake AI)         |
-| `bun run type:check`                             | `tsc --noEmit`                                               |
-| `bun run db:generate`                            | drizzle-kit: write a migration from `src/db/schema`          |
-| `bun run db:migrate-local` / `db:migrate-remote` | Apply migrations in `drizzle/` to the local / remote D1      |
-| `bun run cf-typegen`                             | Regenerate `worker-configuration.d.ts` after binding changes |
+| Script                                            | Does                                                         |
+| ------------------------------------------------- | ------------------------------------------------------------ |
+| `pnpm run dev` / `dev:pretty`                     | `wrangler dev` (optionally piped through pino-pretty)        |
+| `pnpm run test` / `test:watch`                    | vitest in the Workers pool (local bindings, fake AI)         |
+| `pnpm run type:check`                             | `tsc --noEmit`                                               |
+| `pnpm run db:generate`                            | drizzle-kit: write a migration from `src/db/schema`          |
+| `pnpm run db:migrate-local` / `db:migrate-remote` | Apply migrations in `drizzle/` to the local / remote D1      |
+| `pnpm run cf-typegen`                             | Regenerate `worker-configuration.d.ts` after binding changes |
 
 ## Generated bookmark images
 

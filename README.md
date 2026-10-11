@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/agneym/webmarks/actions/workflows/ci.yml/badge.svg)](https://github.com/agneym/webmarks/actions/workflows/ci.yml)
 [![Deployed on Cloudflare Workers](https://img.shields.io/badge/Deployed_on-Cloudflare_Workers-F38020?logo=cloudflare&logoColor=white)](https://backend.quickread.workers.dev)
-[![Bun](https://img.shields.io/badge/Bun-000000?logo=bun&logoColor=white)](https://bun.sh)
+[![pnpm](https://img.shields.io/badge/pnpm-F69220?logo=pnpm&logoColor=white)](https://pnpm.io)
 [![Rust](https://img.shields.io/badge/Rust-000000?logo=rust&logoColor=white)](https://www.rust-lang.org)
 
 Agney's personal bookmarks service, powering <https://www.agney.dev/webmarks>.
@@ -22,17 +22,17 @@ Live API: <https://backend.quickread.workers.dev> (OpenAPI spec at [`/openapi.js
 
 ## Local development
 
-Requires [mise](https://mise.jdx.dev) (installs Bun and hk from `mise.toml`), Node 24 (wrangler and the Workers test pool run on Node) and, for the CLI, a Rust toolchain.
+Requires [mise](https://mise.jdx.dev) (installs pnpm and hk from `mise.toml`), Node 24 (wrangler and the Workers test pool run on Node) and, for the CLI, a Rust toolchain.
 
 ```sh
 mise install
-bun install
+pnpm install
 hk install                                   # optional: oxfmt + oxlint pre-commit hook
 
 cd packages/backend
 cp .dev.vars.example .dev.vars               # fill in secrets, set OWNER_EMAIL
-bun run db:migrate-local                     # apply migrations to the local D1
-bun run dev                                  # wrangler dev on http://localhost:8787
+pnpm run db:migrate-local                    # apply migrations to the local D1
+pnpm run dev                                 # wrangler dev on http://localhost:8787
 ```
 
 For Google sign-in locally, add `http://localhost:8787/api/auth/callback/google` as an authorized redirect URI on the OAuth client.
@@ -40,14 +40,14 @@ For Google sign-in locally, add `http://localhost:8787/api/auth/callback/google`
 Checks (the same ones CI runs):
 
 ```sh
-bun run fmt:check                            # oxfmt (bun run fmt to fix)
-bun run lint                                 # oxlint
-bun run test                                 # vitest in the Workers pool, fully local
-(cd packages/backend && bun run type:check)  # tsc
+pnpm run fmt:check                           # oxfmt (pnpm run fmt to fix)
+pnpm run lint                                # oxlint
+pnpm run test                                # vitest in the Workers pool, fully local
+(cd packages/backend && pnpm run type:check) # tsc
 (cd packages/cli && cargo fmt --check && cargo clippy --all-targets -- -D warnings && cargo test)
 ```
 
-Schema changes: edit `packages/backend/src/db/schema`, then `bun run db:generate` in `packages/backend` to write a migration into `packages/backend/drizzle`.
+Schema changes: edit `packages/backend/src/db/schema`, then `pnpm run db:generate` in `packages/backend` to write a migration into `packages/backend/drizzle`.
 
 ## Configuration
 
