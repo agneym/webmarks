@@ -3,10 +3,29 @@ import { env } from "cloudflare:test";
 import { handleQueue, type QueueMessage } from "../../src/queue-consumer";
 import { seedUser, seedBookmark } from "../helpers/seed";
 import { applyMigrations } from "../helpers/migrations";
+import { createFakeAi, FAKE_JPEG, imageRequestForm } from "../helpers/fake-ai";
+import { IMAGE_MODEL, generatedImageKey } from "../../src/lib/blueprint-image";
 
 const TEST_USER_ID = "test-user-queue";
 const TEST_EMAIL = "queue-test@example.com";
 const TEST_NAME = "Queue Test User";
+
+/** Serve `head` as the page for the next fetch. */
+function servePage(head: string) {
+  return vi.spyOn(globalThis, "fetch").mockResolvedValue(
+    new Response(`<!DOCTYPE html><html><head>${head}</head><body></body></html>`, {
+      status: 200,
+      headers: { "Content-Type": "text/html" },
+    }),
+  );
+}
+
+async function readBookmark(id: string) {
+  return (env as any).webmarks
+    .prepare("SELECT title, image, image_generated, fetch_status FROM bookmark WHERE id = ?")
+    .bind(id)
+    .first();
+}
 
 function createMockMessage(body: QueueMessage, attempts = 0) {
   return {
@@ -15,6 +34,25 @@ function createMockMessage(body: QueueMessage, attempts = 0) {
     ack: vi.fn<() => void>(),
     retry: vi.fn<() => void>(),
   };
+}
+
+const images = () => (env as any).IMAGES as R2Bucket;
+
+async function seedForImage(id: string, extra: { image?: string; imageGenerated?: boolean } = {}) {
+  await seedUser(env as any, TEST_USER_ID, TEST_EMAIL, TEST_NAME);
+  await seedBookmark(env as any, {
+    id,
+    url: `https://example.com/${id}`,
+    userId: TEST_USER_ID,
+    fetchStatus: "pending",
+    ...extra,
+  });
+}
+
+async function runConsumer(id: string, ai: Ai, attempts = 1) {
+  const msg = createMockMessage({ bookmarkId: id, url: `https://example.com/${id}` }, attempts);
+  await handleQueue({ messages: [msg] } as any, { ...(env as any), AI: ai });
+  return msg;
 }
 
 describe("handleQueue", () => {
@@ -64,7 +102,7 @@ describe("handleQueue", () => {
     const msg = createMockMessage({ bookmarkId, url });
     const batch = { messages: [msg] } as any;
 
-    await handleQueue(batch, env as any);
+    await handleQueue(batch, { ...(env as any), AI: createFakeAi().ai });
 
     // Verify fetch was called
     expect(fetchSpy).toHaveBeenCalledOnce();
@@ -96,6 +134,7 @@ describe("handleQueue", () => {
     // Mock fetch to throw
     fetchSpy = vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("Network error"));
 
+    vi.spyOn(console, "error").mockImplementation(() => {});
     const msg = createMockMessage({ bookmarkId, url }, 2);
     const batch = { messages: [msg] } as any;
 
@@ -132,7 +171,8 @@ describe("handleQueue", () => {
     const msg = createMockMessage({ bookmarkId, url }, 5);
     const batch = { messages: [msg] } as any;
 
-    await handleQueue(batch, env as any);
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    await handleQueue(batch, { ...(env as any), AI: createFakeAi().ai });
 
     // Verify ack was called, retry was not
     expect(msg.ack).toHaveBeenCalledOnce();
@@ -144,5 +184,131 @@ describe("handleQueue", () => {
       .bind(bookmarkId)
       .first();
     expect(row.fetch_status).toBe("failed");
+  });
+  // ── Generated blueprint images ─────────────────────────────────────
+
+  describe("blueprint images", () => {
+    afterEach(async () => {
+      const listed = await images().list({ prefix: "generated/" });
+      await Promise.all(listed.objects.map((o) => images().delete(o.key)));
+    });
+
+    it("generates, stores and links a 16:9 blueprint when the page has no og:image", async () => {
+      await seedForImage("bm-gen-new");
+      servePage(`<meta property="og:title" content="Promise execution" />`);
+      const { ai, run: aiRun } = createFakeAi({
+        subject: "Subject: a conveyor loop of task boxes.",
+      });
+
+      const msg = await runConsumer("bm-gen-new", ai);
+
+      const row = await readBookmark("bm-gen-new");
+      expect(row.image).toBe(
+        new URL("/images/generated/bm-gen-new.jpg", (env as any).BETTER_AUTH_URL).toString(),
+      );
+      expect(row.image_generated).toBe(1);
+      expect(row.fetch_status).toBe("success");
+      expect(msg.ack).toHaveBeenCalledOnce();
+
+      const stored = await images().get(generatedImageKey("bm-gen-new"));
+      expect(new Uint8Array(await stored!.arrayBuffer())).toEqual(FAKE_JPEG);
+      expect(stored!.httpMetadata?.contentType).toBe("image/jpeg");
+
+      const imageCall = aiRun.mock.calls.find(([model]) => model === IMAGE_MODEL)!;
+      const form = await imageRequestForm(imageCall[1]);
+      expect(form.get("prompt")).toMatch(
+        /^Technical blueprint illustration, .* no logos\. Subject: a conveyor loop of task boxes\.$/,
+      );
+      expect(form.get("width")).toBe("1280");
+      expect(form.get("height")).toBe("720");
+    });
+
+    it("uses the page's og:image without calling Workers AI", async () => {
+      await seedForImage("bm-gen-og");
+      servePage(`<meta property="og:image" content="https://example.com/og.png" />`);
+      const { ai, run: aiRun } = createFakeAi();
+
+      await runConsumer("bm-gen-og", ai);
+
+      const row = await readBookmark("bm-gen-og");
+      expect(row.image).toBe("https://example.com/og.png");
+      expect(row.image_generated).toBe(0);
+      expect(aiRun).not.toHaveBeenCalled();
+    });
+
+    it("replaces a generated image with a real og:image found on refetch", async () => {
+      await seedForImage("bm-gen-replace", {
+        image: "https://backend.test/images/generated/bm-gen-replace.jpg",
+        imageGenerated: true,
+      });
+      await images().put(generatedImageKey("bm-gen-replace"), FAKE_JPEG);
+      servePage(`<meta property="og:image" content="https://example.com/real.png" />`);
+      const { ai, run: aiRun } = createFakeAi();
+
+      await runConsumer("bm-gen-replace", ai);
+
+      const row = await readBookmark("bm-gen-replace");
+      expect(row.image).toBe("https://example.com/real.png");
+      expect(row.image_generated).toBe(0);
+      expect(await images().head(generatedImageKey("bm-gen-replace"))).toBeNull();
+      expect(aiRun).not.toHaveBeenCalled();
+    });
+
+    it("keeps an existing generated image when a refetch still finds no og:image", async () => {
+      const existing = "https://backend.test/images/generated/bm-gen-keep.jpg";
+      await seedForImage("bm-gen-keep", { image: existing, imageGenerated: true });
+      servePage(`<meta property="og:title" content="Still no image" />`);
+      const { ai, run: aiRun } = createFakeAi();
+
+      await runConsumer("bm-gen-keep", ai);
+
+      const row = await readBookmark("bm-gen-keep");
+      expect(row.image).toBe(existing);
+      expect(row.image_generated).toBe(1);
+      expect(row.title).toBe("Still no image");
+      expect(aiRun).not.toHaveBeenCalled();
+    });
+
+    it("acks without retrying and leaves image null when generation fails", async () => {
+      await seedForImage("bm-gen-fail");
+      servePage(`<meta property="og:title" content="Has a title" />`);
+      vi.spyOn(console, "error").mockImplementation(() => {});
+      const { ai } = createFakeAi({ failImage: true });
+
+      const msg = await runConsumer("bm-gen-fail", ai);
+
+      const row = await readBookmark("bm-gen-fail");
+      expect(row.fetch_status).toBe("success");
+      expect(row.title).toBe("Has a title");
+      expect(row.image).toBeNull();
+      expect(row.image_generated).toBe(0);
+      expect(msg.ack).toHaveBeenCalledOnce();
+      expect(msg.retry).not.toHaveBeenCalled();
+    });
+
+    it("still generates an image once the metadata fetch has finally failed", async () => {
+      await seedForImage("bm-gen-gaveup");
+      vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("blocked"));
+      vi.spyOn(console, "error").mockImplementation(() => {});
+      const { ai } = createFakeAi();
+
+      await runConsumer("bm-gen-gaveup", ai, 5);
+
+      const row = await readBookmark("bm-gen-gaveup");
+      expect(row.fetch_status).toBe("failed");
+      expect(row.image_generated).toBe(1);
+      expect(await images().head(generatedImageKey("bm-gen-gaveup"))).not.toBeNull();
+    });
+
+    it("does not generate while the metadata fetch is still being retried", async () => {
+      await seedForImage("bm-gen-retrying");
+      vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("flaky"));
+      vi.spyOn(console, "error").mockImplementation(() => {});
+      const { ai, run: aiRun } = createFakeAi();
+
+      await runConsumer("bm-gen-retrying", ai, 2);
+
+      expect(aiRun).not.toHaveBeenCalled();
+    });
   });
 });
