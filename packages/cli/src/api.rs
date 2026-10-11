@@ -1,7 +1,10 @@
 use anyhow::{anyhow, Context};
 use serde::de::DeserializeOwned;
 
-use crate::config::{Bookmark, BookmarkListResponse, Config, FetchStatus, Tag, Visibility};
+use crate::config::{
+    check_token_base_url, resolve_base_url, Bookmark, BookmarkListResponse, Config, FetchStatus,
+    Tag, TokenUse, Visibility, BASE_URL_ENV,
+};
 
 /// Query-param strings for enums shared with the backend.
 impl FetchStatus {
@@ -98,34 +101,25 @@ async fn decode<T: DeserializeOwned>(resp: reqwest::Response) -> anyhow::Result<
 }
 
 impl Client {
-    /// Build a client using base_url from the config or the default,
-    /// and attaching the stored session token on every request.
-    pub fn from_config(cfg: &Config) -> anyhow::Result<Self> {
-        let base_url = Self::resolve_base_url(cfg.base_url.as_deref())?;
+    /// Build a client for the effective base URL (see
+    /// [`crate::config::resolve_base_url`]), attaching the stored session
+    /// token only if it was issued by that same server.
+    pub fn from_config(cfg: &Config, flag_base_url: Option<&str>) -> anyhow::Result<Self> {
+        let env = std::env::var(BASE_URL_ENV).ok();
+        let base_url = resolve_base_url(flag_base_url, env.as_deref(), cfg.base_url.as_deref());
+        match check_token_base_url(cfg, &base_url)? {
+            TokenUse::Ok => {}
+            TokenUse::Unpinned => eprintln!(
+                "warning: the saved session token has no recorded server; sending it to {base_url}. \
+                 Run `webmarks login` to record it."
+            ),
+        }
         if let Some(token) = &cfg.session_token {
             // Fail loudly instead of silently dropping the auth header.
             reqwest::header::HeaderValue::from_str(&format!("Bearer {token}"))
                 .map_err(|_| ApiError::InvalidToken { len: token.len() })?;
         }
-        Ok(Self::new(
-            base_url.trim_end_matches('/'),
-            cfg.session_token.clone(),
-        ))
-    }
-
-    /// Resolve base URL with precedence: explicit config value (including
-    /// the `--base-url` flag, which main.rs applies without persisting)
-    /// > `WEBMARKS_BASE_URL` env var > default localhost.
-    fn resolve_base_url(configured: Option<&str>) -> anyhow::Result<String> {
-        if let Some(url) = configured {
-            return Ok(url.to_string());
-        }
-        if let Ok(env_url) = std::env::var("WEBMARKS_BASE_URL") {
-            if !env_url.is_empty() {
-                return Ok(env_url);
-            }
-        }
-        Ok("http://localhost:8787".into())
+        Ok(Self::new(base_url, cfg.session_token.clone()))
     }
 
     pub fn new(base_url: impl Into<String>, session_token: Option<String>) -> Self {
