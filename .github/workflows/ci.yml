@@ -21,42 +21,35 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
-      - name: Set up Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: 1.4.2
+      # Reads the pnpm version from packageManager in package.json.
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
 
       # wrangler and @cloudflare/vitest-pool-workers (workerd) run on Node.
       - name: Set up Node
         uses: actions/setup-node@v7
         with:
           node-version: 24
-
-      - name: Cache Bun dependencies
-        uses: actions/cache@v6
-        with:
-          path: ~/.bun/install/cache
-          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
-          restore-keys: bun-${{ runner.os }}-
+          cache: pnpm
 
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        run: pnpm install --frozen-lockfile
 
       - name: Check formatting (oxfmt)
-        run: bun run fmt:check
+        run: pnpm run fmt:check
 
       - name: Lint (oxlint)
-        run: bun run lint
+        run: pnpm run lint
 
       - name: Type check (tsc)
         working-directory: packages/backend
-        run: bun run type:check
+        run: pnpm run type:check
 
       # remoteBindings: false in vitest.config.ts keeps the workers pool fully
       # local, so no Cloudflare credentials are needed.
       - name: Test (vitest + workers pool)
         working-directory: packages/backend
-        run: bun run test
+        run: pnpm run test
 
   cli:
     name: CLI (fmt, clippy, tests)
