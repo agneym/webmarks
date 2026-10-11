@@ -62,15 +62,10 @@ function pageLocation(url: string): string {
   }
 }
 
-// Anything that asks the image model to draw writing. FLUX renders such
-// requests as garbled lettering, so a subject containing them is discarded.
-const TEXT_REQUEST =
-  /\b(text|texts|words?|letters?|lettering|labels?|labell?ed|logos?|captions?|captioned|titled|typography|fonts?|writing|written|inscriptions?|inscribed|signs?|signage|numbers?|numbered|numerals?|digits?|alphabet|spelling|spelled|says|saying|banner)\b/i;
-
 const TRAILING_FILLER = /[\s,;:-]+(and|or|with|of|a|an|the|to|in|on|at|by|for)?$/i;
 
 /**
- * Turn raw model output into a single safe "Subject: ..." sentence, or null
+ * Turn raw model output into a single clean "Subject: ..." sentence, or null
  * when nothing usable is left.
  */
 export function sanitizeSubject(raw: unknown): string | null {
@@ -97,8 +92,6 @@ export function sanitizeSubject(raw: unknown): string | null {
   // First sentence only.
   text = text.split(/(?<=[.!?])\s/)[0] ?? "";
   text = text.replace(/[.!?\s]+$/, "");
-
-  if (TEXT_REQUEST.test(text)) return null;
 
   if (text.length > MAX_SUBJECT_LENGTH) {
     const cut = text.slice(0, MAX_SUBJECT_LENGTH);

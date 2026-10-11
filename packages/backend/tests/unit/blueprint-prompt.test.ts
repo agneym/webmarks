@@ -30,14 +30,10 @@ describe("sanitizeSubject", () => {
     );
   });
 
-  it("rejects subjects that ask for writing in the image", () => {
-    const raws = [
-      "Subject: a book with the word TypeScript written on its cover.",
+  it("doesn't filter subjects that mention writing; the prompt alone discourages it", () => {
+    expect(sanitizeSubject("Subject: a calendar grid labeled with weekdays.")).toBe(
       "Subject: a calendar grid labeled with weekdays.",
-      "Subject: a server rack with a logo on the front.",
-      "Subject: a scroll covered in numbers.",
-    ];
-    expect(raws.map(sanitizeSubject)).toEqual([null, null, null, null]);
+    );
   });
 
   it("rejects empty, too short and non-string output", () => {
@@ -123,12 +119,6 @@ describe("writeSubject", () => {
   it("returns the sanitized model subject", async () => {
     const { ai } = createFakeAi({ subject: 'Subject: "a card catalogue drawer on rails".' });
     expect(await writeSubject(ai, source)).toBe("Subject: a card catalogue drawer on rails.");
-  });
-
-  it("falls back to the tag subject when the model output is unusable", async () => {
-    vi.spyOn(console, "warn").mockImplementation(() => {});
-    const { ai } = createFakeAi({ subject: "Subject: a sign that says INDEX." });
-    expect(await writeSubject(ai, source)).toBe(tagFallback);
   });
 
   it("falls back to the tag subject when the model call fails", async () => {
