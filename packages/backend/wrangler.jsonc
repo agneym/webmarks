@@ -19,12 +19,15 @@
   //     "id": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
   //   }
   // ],
-  // "r2_buckets": [
-  //   {
-  //     "binding": "MY_BUCKET",
-  //     "bucket_name": "my-bucket"
-  //   }
-  // ],
+  // Generated blueprint images for bookmarks without an og:image, served
+  // through GET /images/generated/:id.jpg. Create once with
+  // `wrangler r2 bucket create webmarks-images`.
+  "r2_buckets": [
+    {
+      "binding": "IMAGES",
+      "bucket_name": "webmarks-images",
+    },
+  ],
   "d1_databases": [
     {
       "binding": "webmarks",
@@ -50,9 +53,10 @@
       },
     ],
   },
-  // "ai": {
-  //   "binding": "AI"
-  // },
+  // Workers AI: writes the image subject (text model) and draws the image (FLUX.2 klein).
+  "ai": {
+    "binding": "AI",
+  },
   // "observability": {
   //   "enabled": true,
   //   "head_sampling_rate": 1

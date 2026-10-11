@@ -8,6 +8,8 @@ declare namespace Cloudflare {
   interface Env {
     webmarks: D1Database;
     BOOKMARK_QUEUE: Queue;
+    IMAGES: R2Bucket;
+    AI: Ai;
     CLOUDFLARE_ACCOUNT_ID: string;
     CLOUDFLARE_DATABASE_ID: string;
     CLOUDFLARE_API_TOKEN: string;
