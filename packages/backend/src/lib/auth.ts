@@ -6,7 +6,7 @@ import { bearer, multiSession, openAPI } from "better-auth/plugins";
 import { v7 as uuidv7 } from "uuid";
 import { createDrizzle } from "../db";
 
-function isOwnerEmail(email: string | undefined | null, ownerEmail: string): boolean {
+export function isOwnerEmail(email: string | undefined | null, ownerEmail: string): boolean {
   if (!email) return false;
   return email.trim().toLowerCase() === ownerEmail.trim().toLowerCase();
 }

@@ -6,6 +6,8 @@ import { logger } from "./middleware/logger";
 import bookmarks from "./routes/bookmarks";
 import tags from "./routes/tags";
 import deviceApp from "./routes/device";
+import admin from "./routes/admin";
+import images from "./routes/images";
 import { handleQueue, type QueueMessage } from "./queue-consumer";
 
 const app = new OpenAPIHono<{
@@ -89,6 +91,9 @@ app.get("/api/me", async (c) => {
 
 app.route("/api/bookmarks", bookmarks);
 app.route("/api/tags", tags);
+app.route("/api/admin", admin);
+// Generated bookmark images (public, long-cached)
+app.route("/images", images);
 // Device verification / approval pages (RFC 8628 user side)
 app.route("/device", deviceApp);
 

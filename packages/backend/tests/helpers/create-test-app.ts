@@ -1,6 +1,8 @@
 import { Hono } from "hono";
 import bookmarks from "../../src/routes/bookmarks";
 import tags from "../../src/routes/tags";
+import admin from "../../src/routes/admin";
+import images from "../../src/routes/images";
 
 const TEST_USER_ID = "test-user-001";
 
@@ -11,12 +13,12 @@ type SessionUser = {
 } | null;
 
 /**
- * Creates a Hono app with bookmark + tag routes.
+ * Creates a Hono app with the bookmark, tag, admin and image routes.
  *
  * By default auth is bypassed with a valid session for TEST_USER_ID.
  * Pass `{ authenticated: false }` to simulate a public (logged-out) client.
  */
-export function createTestApp(opts?: { authenticated?: boolean; userId?: string }) {
+export function createTestApp(opts?: { authenticated?: boolean; userId?: string; email?: string }) {
   const authenticated = opts?.authenticated !== false;
   const userId = opts?.userId ?? TEST_USER_ID;
 
@@ -26,7 +28,7 @@ export function createTestApp(opts?: { authenticated?: boolean; userId?: string 
     ? {
         id: userId,
         name: "Test User",
-        email: "test@example.com",
+        email: opts?.email ?? "test@example.com",
       }
     : null;
 
@@ -55,9 +57,12 @@ export function createTestApp(opts?: { authenticated?: boolean; userId?: string 
   // Inject mock auth + logger for both bookmark and tag routes
   app.use("/api/bookmarks/*", mockAuthMiddleware);
   app.use("/api/tags/*", mockAuthMiddleware);
+  app.use("/api/admin/*", mockAuthMiddleware);
 
   app.route("/api/bookmarks", bookmarks);
   app.route("/api/tags", tags);
+  app.route("/api/admin", admin);
+  app.route("/images", images);
 
   return app;
 }
