@@ -9,7 +9,7 @@ import {
   type SubjectSource,
 } from "./blueprint-prompt";
 
-export const TEXT_MODEL = "@cf/meta/llama-3.2-3b-instruct";
+export const TEXT_MODEL = "@cf/google/gemma-4-26b-a4b-it";
 export const IMAGE_MODEL = "@cf/black-forest-labs/flux-2-klein-4b";
 
 /**
@@ -37,11 +37,12 @@ export async function writeSubject(ai: Ai, source: SubjectSource): Promise<strin
   try {
     const result = await ai.run(TEXT_MODEL, {
       messages: buildSubjectMessages(source),
-      max_tokens: 96,
+      max_completion_tokens: 96,
       temperature: 0.5,
+      // One short sentence; thinking would only add latency and output tokens.
+      chat_template_kwargs: { enable_thinking: false },
     });
-    const raw =
-      result && typeof result === "object" && "response" in result ? result.response : undefined;
+    const raw = completionText(result);
     const subject = sanitizeSubject(raw);
     if (subject) return subject;
     console.warn(`Unusable image subject from ${TEXT_MODEL}, using tag fallback:`, raw);
@@ -49,6 +50,21 @@ export async function writeSubject(ai: Ai, source: SubjectSource): Promise<strin
     console.warn(`Subject generation failed, using tag fallback:`, err);
   }
   return fallbackSubject(source);
+}
+
+/**
+ * The assistant text of a chat completion. Gemma 4 answers in the OpenAI
+ * shape (`choices[0].message.content`); older Workers AI text models use
+ * `{ response }`, accepted too so a model swap doesn't break parsing.
+ */
+export function completionText(result: unknown): unknown {
+  if (!result || typeof result !== "object") return undefined;
+  const { choices, response } = result as { choices?: unknown; response?: unknown };
+  if (Array.isArray(choices)) {
+    const message = (choices[0] as { message?: { content?: unknown } } | undefined)?.message;
+    return message?.content;
+  }
+  return response;
 }
 
 /** Render a prompt with FLUX.2 klein and return the JPEG bytes. */

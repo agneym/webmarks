@@ -6,7 +6,7 @@ import {
   fallbackSubject,
   sanitizeSubject,
 } from "../../src/lib/blueprint-prompt";
-import { writeSubject } from "../../src/lib/blueprint-image";
+import { completionText, writeSubject } from "../../src/lib/blueprint-image";
 import { createFakeAi } from "../helpers/fake-ai";
 
 describe("sanitizeSubject", () => {
@@ -136,5 +136,21 @@ describe("writeSubject", () => {
     const run = vi.fn<() => Promise<never>>().mockRejectedValue(new Error("rate limited"));
     const ai = { run } as unknown as Ai;
     expect(await writeSubject(ai, source)).toBe(tagFallback);
+  });
+});
+
+describe("completionText", () => {
+  it("reads the OpenAI-style chat completion Gemma 4 returns", () => {
+    expect(
+      completionText({
+        choices: [{ index: 0, message: { role: "assistant", content: "Subject: a gear." } }],
+      }),
+    ).toBe("Subject: a gear.");
+  });
+
+  it("still reads the legacy { response } shape and ignores anything else", () => {
+    expect(completionText({ response: "Subject: a gear." })).toBe("Subject: a gear.");
+    expect(completionText({ choices: [] })).toBeUndefined();
+    expect(completionText(null)).toBeUndefined();
   });
 });

@@ -19,7 +19,9 @@ interface FakeAiOptions {
 export function createFakeAi(opts: FakeAiOptions = {}) {
   const run = vi.fn<(model: string, input: unknown) => Promise<unknown>>(async (model) => {
     if (model === TEXT_MODEL) {
-      return { response: opts.subject ?? "Subject: a brass gear train meshing with a ratchet." };
+      const content = opts.subject ?? "Subject: a brass gear train meshing with a ratchet.";
+      // Gemma 4 answers in the OpenAI chat-completions shape.
+      return { choices: [{ index: 0, message: { role: "assistant", content } }] };
     }
     if (model === IMAGE_MODEL) {
       if (opts.failImage) throw new Error("image model unavailable");
