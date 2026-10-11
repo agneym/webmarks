@@ -1,0 +1,1 @@
+ALTER TABLE `bookmark` ADD `image_generated` integer DEFAULT false NOT NULL;

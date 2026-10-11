@@ -25,6 +25,7 @@ import { updateBookmarkRoute } from "./update";
 import { deleteBookmarkRoute } from "./delete";
 import { setBookmarkTagsRoute, getBookmarkTagsRoute } from "./tags";
 import { attachTagsToBookmarks } from "./attach-tags";
+import { deleteGeneratedImage } from "../../lib/blueprint-image";
 
 type Bindings = CloudflareBindings;
 type Variables = { auth: Auth; logger: import("pino").Logger; userId?: string };
@@ -275,10 +276,14 @@ bookmarks.openapi(deleteBookmarkRoute, async (c) => {
   const result = await db
     .delete(bookmark)
     .where(and(eq(bookmark.id, id), eq(bookmark.userId, userId)))
-    .returning({ id: bookmark.id });
+    .returning({ id: bookmark.id, imageGenerated: bookmark.imageGenerated });
 
   if (result.length === 0) {
     return c.json({ error: "Bookmark not found" }, 404);
+  }
+
+  if (result[0]?.imageGenerated) {
+    await deleteGeneratedImage(c.env.IMAGES, id);
   }
 
   c.var.logger.info({ id, userId }, "bookmark deleted");
