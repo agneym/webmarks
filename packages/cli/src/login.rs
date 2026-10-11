@@ -7,7 +7,8 @@
 //!  3. Poll POST `{base}/api/auth/device/token` with
 //!     grant_type=device_code every `interval` seconds until success,
 //!     expiry, or denial.
-//!  4. Store the returned access_token as the session token.
+//!  4. Store the returned access_token as the session token, along with
+//!     the base URL, so later commands only send it back to that server.
 
 use std::time::Duration;
 
@@ -106,8 +107,9 @@ struct TokenPollResponse {
     error: Option<String>,
 }
 
-/// Run the interactive device-flow login and persist the session token.
-pub async fn run_login(client: &Client, _cfg: &Config, no_open: bool) -> anyhow::Result<()> {
+/// Run the interactive device-flow login and persist the session token
+/// together with the base URL it was issued by.
+pub async fn run_login(client: &Client, no_open: bool) -> anyhow::Result<()> {
     let base_url = client.base_url().trim_end_matches('/');
 
     // 1. Request the device/user codes from the Better Auth backend.
@@ -179,8 +181,9 @@ pub async fn run_login(client: &Client, _cfg: &Config, no_open: bool) -> anyhow:
             PollDecision::Success { access_token } => {
                 let mut cfg = Config::load()?;
                 cfg.session_token = Some(access_token);
+                cfg.base_url = Some(base_url.to_string());
                 cfg.save()?;
-                println!("Logged in.");
+                println!("Logged in to {base_url}.");
                 return Ok(());
             }
             PollDecision::Pending { interval: i } => interval = i,

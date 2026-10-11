@@ -65,6 +65,8 @@ fn error_code_for(err: &anyhow::Error) -> &'static str {
             Some(_) => "API_ERROR",
             None => "API_ERROR",
         }
+    } else if err.chain().any(|c| c.is::<config::BaseUrlMismatch>()) {
+        "BASE_URL_MISMATCH"
     } else if err.chain().any(|c| {
         c.downcast_ref::<reqwest::Error>()
             .is_some_and(|r| r.is_connect() || r.is_timeout())
@@ -77,6 +79,12 @@ fn error_code_for(err: &anyhow::Error) -> &'static str {
 
 /// The exact command a user (or agent) can run to recover.
 fn fix_hint_for(err: &anyhow::Error) -> Option<String> {
+    if let Some(m) = err
+        .chain()
+        .find_map(|c| c.downcast_ref::<config::BaseUrlMismatch>())
+    {
+        return Some(m.fix_hint());
+    }
     if err.chain().any(|c| c.is::<api::ApiError>()) {
         let status = err
             .chain()
@@ -139,10 +147,9 @@ async fn dispatch(cli: Cli) -> anyhow::Result<()> {
         return cmd_login(&cli).await;
     }
 
-    let mut cfg = config::Config::load()?;
-    if let Some(base) = &cli.base_url {
-        cfg.base_url = Some(base.clone());
-    }
+    // Don't fold --base-url into cfg: cfg.base_url is the server the saved
+    // token belongs to, and logout re-saves cfg.
+    let cfg = config::Config::load()?;
 
     match &cli.command {
         Commands::Logout => cmd_logout(&cli, cfg).await,
@@ -198,8 +205,8 @@ async fn dispatch(cli: Cli) -> anyhow::Result<()> {
 
 // --- Command handlers ---
 
-fn client(_cli: &Cli, cfg: &config::Config) -> anyhow::Result<api::Client> {
-    api::Client::from_config(cfg)
+fn client(cli: &Cli, cfg: &config::Config) -> anyhow::Result<api::Client> {
+    api::Client::from_config(cfg, cli.base_url.as_deref())
 }
 
 fn print_bookmark_or_json(cli: &Cli, bookmark: &config::Bookmark) {
@@ -219,19 +226,25 @@ async fn cmd_login(cli: &Cli) -> anyhow::Result<()> {
         _ => unreachable!(),
     };
     let cfg = config::Config::load()?;
-    // Apply --base-url for this invocation only; don't persist a one-off flag.
-    let mut effective = cfg.clone();
-    if let Some(base) = &cli.base_url {
-        effective.base_url = Some(base.clone());
-    }
-    let client = api::Client::from_config(&effective)?;
-    login::run_login(&client, &cfg, no_open).await
+    let env = std::env::var(config::BASE_URL_ENV).ok();
+    let base_url = config::resolve_base_url(
+        cli.base_url.as_deref(),
+        env.as_deref(),
+        cfg.base_url.as_deref(),
+    );
+    // The device flow is unauthenticated: never attach an existing token,
+    // which may belong to a different server.
+    let client = api::Client::new(base_url, None);
+    login::run_login(&client, no_open).await
 }
 
-async fn cmd_logout(_cli: &Cli, mut cfg: config::Config) -> anyhow::Result<()> {
+async fn cmd_logout(cli: &Cli, mut cfg: config::Config) -> anyhow::Result<()> {
     if cfg.session_token.is_some() {
         // Best-effort server-side revocation; token removal happens regardless.
-        let c = api::Client::from_config(&cfg)?;
+        // Revoke at the server that issued the token, whatever --base-url or
+        // WEBMARKS_BASE_URL say, so the token is never sent anywhere else.
+        let base = cfg.base_url.as_deref().or(cli.base_url.as_deref());
+        let c = api::Client::from_config(&cfg, base)?;
         if let Err(e) = c.sign_out().await {
             eprintln!("warning: server sign-out failed ({e}); removing local token anyway");
         }
