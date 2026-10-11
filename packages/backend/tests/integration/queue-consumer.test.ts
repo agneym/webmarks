@@ -219,8 +219,8 @@ describe("handleQueue", () => {
       expect(form.get("prompt")).toMatch(
         /^Technical blueprint illustration, .* no logos\. Subject: a conveyor loop of task boxes\.$/,
       );
-      expect(form.get("width")).toBe("1280");
-      expect(form.get("height")).toBe("720");
+      expect(form.get("width")).toBe("768");
+      expect(form.get("height")).toBe("432");
     });
 
     it("uses the page's og:image without calling Workers AI", async () => {

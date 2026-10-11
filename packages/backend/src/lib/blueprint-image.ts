@@ -13,11 +13,14 @@ export const TEXT_MODEL = "@cf/google/gemma-4-26b-a4b-it";
 export const IMAGE_MODEL = "@cf/black-forest-labs/flux-2-klein-4b";
 
 /**
- * 16:9 to match the portfolio card's `aspect-video` thumbnail slot. Both are
- * multiples of 16 and inside the model's 256-1920 range.
+ * 16:9 to match the `aspect-video` thumbnail slot on agney.dev's webmarks
+ * cards. That slot is at most ~380 CSS px wide in the 3-column grid (~590 px
+ * in the single-column mobile layout), so 768 px covers 2x DPR on desktop.
+ * Both are multiples of 16 and inside the model's 256-1920 range, and the
+ * image fits in two 512x512 output tiles.
  */
-export const IMAGE_WIDTH = 1280;
-export const IMAGE_HEIGHT = 720;
+export const IMAGE_WIDTH = 768;
+export const IMAGE_HEIGHT = 432;
 
 export const GENERATED_IMAGE_CACHE_CONTROL = "public, max-age=31536000, immutable";
 
