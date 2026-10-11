@@ -15,6 +15,11 @@ export const BookmarkSchema = z
     title: z.string().nullable().optional().openapi({ example: "Example Domain" }),
     description: z.string().nullable().optional().openapi({ example: "An example website" }),
     image: z.string().nullable().optional().openapi({ example: "https://example.com/og.png" }),
+    imageGenerated: z.boolean().optional().openapi({
+      example: false,
+      description:
+        "True when `image` is a generated blueprint illustration (the page had no og:image)",
+    }),
     favicon: z.string().nullable().optional(),
     fetchStatus: z
       .enum(["pending", "success", "failed"])

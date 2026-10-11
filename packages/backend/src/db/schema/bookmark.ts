@@ -1,5 +1,5 @@
 import { relations } from "drizzle-orm";
-import { index, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 import { user } from "./auth";
 import { bookmarkTag } from "./tag";
 import { timestamps } from "./helpers";
@@ -15,6 +15,12 @@ export const bookmark = sqliteTable(
     title: text("title"),
     description: text("description"),
     image: text("image"),
+    /**
+     * True when `image` points at a blueprint we generated (stored in R2) rather
+     * than the page's own og:image. A later refetch that finds a real og:image
+     * replaces a generated one.
+     */
+    imageGenerated: integer("image_generated", { mode: "boolean" }).default(false).notNull(),
     favicon: text("favicon"),
     fetchStatus: text("fetch_status", { enum: ["pending", "success", "failed"] })
       .default("pending")
