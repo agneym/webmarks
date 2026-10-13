@@ -40,6 +40,8 @@ export function createApi(baseUrl: string, token: string, fetchFn: typeof fetch 
     createBookmark: (url: string) => request<Bookmark>("POST", "/api/bookmarks", { url }),
     setTags: (id: string, tags: string[]) =>
       request<unknown>("PUT", `/api/bookmarks/${encodeURIComponent(id)}/tags`, { tags }),
+    deleteBookmark: (id: string) =>
+      request<unknown>("DELETE", `/api/bookmarks/${encodeURIComponent(id)}`),
   };
 }
 

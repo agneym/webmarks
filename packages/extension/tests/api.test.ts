@@ -24,3 +24,13 @@ describe("createApi", () => {
     expect(err).toMatchObject({ status: 401, message: "Unauthorized" });
   });
 });
+
+describe("bookmark writes", () => {
+  it("deletes only the given bookmark id, URL-encoded", async () => {
+    const fetchFn = fakeFetch(200, { success: true });
+    await createApi("http://x", "t", fetchFn).deleteBookmark("a/b");
+    const [url, init] = fetchFn.mock.calls[0]!;
+    expect(init?.method).toBe("DELETE");
+    expect(url).toBe("http://x/api/bookmarks/a%2Fb");
+  });
+});

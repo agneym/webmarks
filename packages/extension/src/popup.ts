@@ -100,26 +100,54 @@ async function saveForm(api: Api, tab: chrome.tabs.Tab): Promise<Node[]> {
   const picker = tagPicker(await api.listTags());
   const status = h("p", { role: "status" });
   const button = h("button", { type: "button", class: "primary" }, "Save");
+  const undo = h("button", { type: "button", hidden: true }, "Undo");
+  let savedId: string | null = null;
+
+  const show = (kind: "muted" | "success" | "error", text: string) => {
+    status.className = kind;
+    status.textContent = text;
+  };
+
   button.addEventListener("click", async () => {
     button.disabled = true;
-    status.className = "muted";
-    status.textContent = "Saving…";
+    show("muted", "Saving…");
     try {
       const bookmark = await api.createBookmark(url);
+      // Remember it before tagging so Undo still works if tagging fails.
+      savedId = bookmark.id;
+      undo.hidden = false;
       const tags = picker.selected();
       if (tags.length) await api.setTags(bookmark.id, tags);
-      status.className = "success";
-      status.textContent = "Saved.";
+      show("success", "Saved.");
     } catch (err) {
-      button.disabled = false;
-      status.className = "error";
-      status.textContent =
+      if (!savedId) button.disabled = false;
+      show(
+        "error",
         err instanceof ApiError && err.status === 409
           ? "Already in your bookmarks."
-          : (err as Error).message;
+          : (err as Error).message,
+      );
     }
   });
-  return [picker.el, button, status];
+
+  // Undo only ever deletes the bookmark this popup just created, never one
+  // that already existed (a 409 leaves savedId unset).
+  undo.addEventListener("click", async () => {
+    if (!savedId) return;
+    undo.disabled = true;
+    try {
+      await api.deleteBookmark(savedId);
+      savedId = null;
+      undo.hidden = true;
+      button.disabled = false;
+      show("muted", "Removed.");
+    } catch (err) {
+      show("error", `Undo failed: ${(err as Error).message}`);
+    } finally {
+      undo.disabled = false;
+    }
+  });
+  return [picker.el, h("div", { class: "row" }, button, undo), status];
 }
 
 async function loggedInView(ctx: LoggedInContext): Promise<Node[]> {
