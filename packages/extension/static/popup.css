@@ -94,3 +94,43 @@ button:disabled {
   cursor: pointer;
   margin-bottom: 6px;
 }
+.tag-picker {
+  display: grid;
+  gap: 6px;
+}
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.chips:empty {
+  display: none;
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 4px 2px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+}
+.chip button {
+  border: none;
+  padding: 0 4px;
+}
+.suggestions {
+  display: grid;
+}
+.option {
+  display: flex;
+  justify-content: space-between;
+  border: none;
+  border-radius: 4px;
+  text-align: left;
+}
+.option.active {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+.option.create {
+  color: var(--accent);
+}

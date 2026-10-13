@@ -1,3 +1,5 @@
+import type { Tag } from "./tags";
+
 /** Thin client for the webmarks API, authenticated with a bearer token. */
 
 export class ApiError extends Error {
@@ -10,6 +12,8 @@ export class ApiError extends Error {
 }
 
 export type User = { id: string; email: string; name?: string };
+
+export type Bookmark = { id: string; url: string; tags: Array<{ id: string; name: string }> };
 
 export function createApi(baseUrl: string, token: string, fetchFn: typeof fetch = fetch) {
   async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
@@ -32,6 +36,10 @@ export function createApi(baseUrl: string, token: string, fetchFn: typeof fetch 
     me: () => request<{ user: User }>("GET", "/api/me").then((r) => r.user),
     // Better Auth rejects sign-out without a JSON body.
     signOut: () => request<unknown>("POST", "/api/auth/sign-out", {}),
+    listTags: () => request<{ tags: Tag[] }>("GET", "/api/tags").then((r) => r.tags),
+    createBookmark: (url: string) => request<Bookmark>("POST", "/api/bookmarks", { url }),
+    setTags: (id: string, tags: string[]) =>
+      request<unknown>("PUT", `/api/bookmarks/${encodeURIComponent(id)}/tags`, { tags }),
   };
 }
 

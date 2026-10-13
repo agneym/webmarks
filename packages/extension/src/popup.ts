@@ -1,7 +1,8 @@
-import { ApiError, createApi, type User } from "./api";
+import { ApiError, createApi, type Api, type User } from "./api";
 import type { Message } from "./background";
 import { normalizeBaseUrl, originPattern } from "./config";
 import { h } from "./dom";
+import { tagPicker } from "./tag-picker";
 import {
   clearSession,
   getBaseUrl,
@@ -88,7 +89,40 @@ function loggedOutView(baseUrl: string, login: LoginState | null): Node[] {
 
 export type LoggedInContext = { session: Session; user: User; tab: chrome.tabs.Tab };
 
-function loggedInView(ctx: LoggedInContext): Node[] {
+const savable = (url: string | undefined): url is string => !!url && /^https?:\/\//.test(url);
+
+/** Tag picker + Save for the current tab. */
+async function saveForm(api: Api, tab: chrome.tabs.Tab): Promise<Node[]> {
+  if (!savable(tab.url)) {
+    return [h("p", { class: "muted" }, "Only http(s) pages can be saved.")];
+  }
+  const url = tab.url;
+  const picker = tagPicker(await api.listTags());
+  const status = h("p", { role: "status" });
+  const button = h("button", { type: "button", class: "primary" }, "Save");
+  button.addEventListener("click", async () => {
+    button.disabled = true;
+    status.className = "muted";
+    status.textContent = "Saving…";
+    try {
+      const bookmark = await api.createBookmark(url);
+      const tags = picker.selected();
+      if (tags.length) await api.setTags(bookmark.id, tags);
+      status.className = "success";
+      status.textContent = "Saved.";
+    } catch (err) {
+      button.disabled = false;
+      status.className = "error";
+      status.textContent =
+        err instanceof ApiError && err.status === 409
+          ? "Already in your bookmarks."
+          : (err as Error).message;
+    }
+  });
+  return [picker.el, button, status];
+}
+
+async function loggedInView(ctx: LoggedInContext): Promise<Node[]> {
   const api = createApi(ctx.session.baseUrl, ctx.session.token);
   const signOut = async () => {
     // Revoke on the server too; clear locally even if that fails.
@@ -103,6 +137,7 @@ function loggedInView(ctx: LoggedInContext): Node[] {
       h("button", { type: "button", class: "link", onclick: signOut }, "Sign out"),
     ),
     h("p", { class: "url", title: ctx.tab.url ?? "" }, ctx.tab.title || ctx.tab.url || ""),
+    ...(await saveForm(api, ctx.tab)),
   ];
 }
 
@@ -119,7 +154,7 @@ async function render(): Promise<void> {
       chrome.tabs.query({ active: true, currentWindow: true }),
     ]);
     if (!tab) throw new Error("No active tab");
-    mount(...loggedInView({ session, user, tab }));
+    mount(...(await loggedInView({ session, user, tab })));
   } catch (err) {
     if (err instanceof ApiError && err.status === 401) {
       await clearSession(); // Expired or revoked: storage change re-renders.
