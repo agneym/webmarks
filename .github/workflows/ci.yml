@@ -51,6 +51,39 @@ jobs:
         working-directory: packages/backend
         run: pnpm run test
 
+  extension:
+    name: Extension (types, tests, build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: packages/extension
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      # oxfmt and oxlint already run repo-wide in the Backend job.
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --filter extension
+
+      - name: Type check (tsc)
+        run: pnpm run type:check
+
+      - name: Test (vitest)
+        run: pnpm run test
+
+      - name: Build
+        run: pnpm run build -- --minify
+
   cli:
     name: CLI (fmt, clippy, tests)
     runs-on: ubuntu-latest
