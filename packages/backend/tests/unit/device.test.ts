@@ -186,7 +186,7 @@ describe("POST /device/approve and /device/deny", () => {
     expect(args.headers).toBeInstanceOf(Headers);
     const body = await res.text();
     expect(body).toContain("approved");
-    expect(body).toContain("terminal");
+    expect(body).toContain("return to the app");
   });
 
   it("renders a graceful error page when deny fails (expired/processed)", async () => {

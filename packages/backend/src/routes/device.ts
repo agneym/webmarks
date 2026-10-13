@@ -14,7 +14,7 @@ import { html, esc } from "../lib/html";
  *   1. GET /device            — user_code entry form (or sign-in first).
  *   2. GET /device?user_code  — verify via the plugin, show Approve/Deny.
  *   3. POST /device/approve|deny — same-session, forwards to the plugin API,
- *      then renders a "return to your terminal" page.
+ *      then renders a "return to the app" page.
  */
 
 type Vars = {
@@ -100,12 +100,12 @@ function renderSignInPage(returnTo: string): string {
 </script>`;
 }
 
-/** Entry form where the user types the code shown in their terminal. */
+/** Entry form where the user types the code shown by the CLI or extension. */
 function renderUserCodeForm(): string {
   return `
 <div class="card">
   <h2 style="margin-top:0">Device verification</h2>
-  <p>Enter the code shown in your terminal:</p>
+  <p>Enter the code shown in your terminal or the extension:</p>
   <form method="get" action="/device">
     <input name="user_code" placeholder="XXXX-XXXX" autocomplete="off"
            autocapitalize="characters" spellcheck="false" required>
@@ -168,7 +168,9 @@ app.get("/", async (c) => {
     }
     if (result.status === "approved") {
       return html(
-        renderMessagePage("This device has already been approved. Return to your terminal."),
+        renderMessagePage(
+          "This device has already been approved. Return to the app that asked to sign in.",
+        ),
       );
     }
     if (result.status === "denied") {
@@ -180,7 +182,7 @@ app.get("/", async (c) => {
     // Unknown, malformed, or expired user_code — never leak details.
     return html(
       renderMessagePage(
-        "Invalid or expired code. Check the code in your terminal and try again.",
+        "Invalid or expired code. Check the code shown by the app and try again.",
         true,
       ),
       400,
@@ -209,7 +211,7 @@ async function handleDecision(
     await api({ body: { userCode }, headers: c.req.raw.headers });
     return html(
       renderMessagePage(
-        `Device <strong>${action === "approve" ? "approved" : "denied"}</strong>. You can return to your terminal now.`,
+        `Device <strong>${action === "approve" ? "approved" : "denied"}</strong>. You can return to the app that asked to sign in (terminal or browser extension).`,
       ),
     );
   } catch {
