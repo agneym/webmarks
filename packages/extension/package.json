@@ -1,0 +1,15 @@
+{
+  "name": "extension",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "type:check": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.1.43",
+    "esbuild": "^0.28.1",
+    "vitest": "^4.1.11"
+  }
+}
