@@ -15,10 +15,11 @@ Live API: <https://backend.quickread.workers.dev> (OpenAPI spec at [`/openapi.js
 
 ## Layout
 
-| Path                                    | What                                                |
-| --------------------------------------- | --------------------------------------------------- |
-| [`packages/backend`](packages/backend/) | Worker: routes, auth, queue consumer, D1 migrations |
-| [`packages/cli`](packages/cli/)         | Rust CLI (`webmarks`)                               |
+| Path                                        | What                                                |
+| ------------------------------------------- | --------------------------------------------------- |
+| [`packages/backend`](packages/backend/)     | Worker: routes, auth, queue consumer, D1 migrations |
+| [`packages/cli`](packages/cli/)             | Rust CLI (`webmarks`)                               |
+| [`packages/extension`](packages/extension/) | Chrome extension: save the current tab              |
 
 ## Local development
 
@@ -69,6 +70,7 @@ Because migrations go out just before the new code, keep them backward-compatibl
 [`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on pull requests and pushes to `main`:
 
 - **Backend:** oxfmt, oxlint, tsc, vitest
+- **Extension:** tsc, vitest, esbuild build
 - **CLI:** `cargo fmt --check`, `cargo clippy -D warnings`, `cargo test`
 
 ## CLI
@@ -107,3 +109,17 @@ curl -X POST -H "Authorization: Bearer $WEBMARKS_TOKEN" \
 ```
 
 `$WEBMARKS_TOKEN` is the `session_token` from the CLI config file. Generated images are served from `/images/generated/<bookmark id>.jpg`. See [`packages/backend`](packages/backend/README.md) for how they are made.
+
+## Chrome extension
+
+A Manifest V3 popup that saves the current tab as a bookmark, with tags picked from your existing ones (creating a new tag is a separate, explicit action), and an Undo button that deletes the bookmark it just saved.
+
+```sh
+cd packages/extension
+pnpm run build                               # writes an unpacked extension to dist/
+pnpm run test                                # vitest
+```
+
+Load it in Chrome: open `chrome://extensions`, turn on **Developer mode**, click **Load unpacked** and pick `packages/extension/dist`. Rebuild and press the reload icon on the card after changes.
+
+Sign-in uses the same device flow as the CLI: **Sign in** opens `/device` in a new tab; approve it there and the extension's service worker picks up the session token, kept in `chrome.storage.local`. The server defaults to `https://backend.quickread.workers.dev`; change it under **Server** in the popup (e.g. `http://localhost:8787` for `wrangler dev`), which asks Chrome for access to that host and signs you out of the previous one, so a token is only ever sent to the server that issued it.
