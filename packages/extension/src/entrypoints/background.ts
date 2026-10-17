@@ -1,9 +1,8 @@
 // Service worker: runs the device-login poll so it survives the popup closing
 // when the approval tab takes focus.
-import { pollDecision, pollToken, requestDeviceCode } from "./device";
-import { getBaseUrl, getLogin, setLogin, setSession } from "./storage";
-
-export type Message = { type: "login" } | { type: "cancel-login" };
+import { pollDecision, pollToken, requestDeviceCode } from "../device";
+import type { Message } from "../messages";
+import { getBaseUrl, getLogin, setLogin, setSession } from "../storage";
 
 let polling = false;
 
@@ -71,10 +70,12 @@ async function poll(): Promise<void> {
 }
 /* oxlint-enable no-await-in-loop */
 
-chrome.runtime.onMessage.addListener((msg: Message) => {
-  if (msg.type === "login") void startLogin();
-  if (msg.type === "cancel-login") void setLogin(null);
-});
+export default defineBackground(() => {
+  chrome.runtime.onMessage.addListener((msg: Message) => {
+    if (msg.type === "login") void startLogin();
+    if (msg.type === "cancel-login") void setLogin(null);
+  });
 
-// The worker can be stopped mid-login; pick the poll back up when it restarts.
-void poll();
+  // The worker can be stopped mid-login; pick the poll back up when it restarts.
+  void poll();
+});

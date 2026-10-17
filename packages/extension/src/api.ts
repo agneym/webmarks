@@ -13,6 +13,8 @@ export class ApiError extends Error {
 
 export type User = { id: string; email: string; name?: string };
 
+export type Visibility = "public" | "private";
+
 export type Bookmark = { id: string; url: string; tags: Array<{ id: string; name: string }> };
 
 export function createApi(baseUrl: string, token: string, fetchFn: typeof fetch = fetch) {
@@ -37,7 +39,8 @@ export function createApi(baseUrl: string, token: string, fetchFn: typeof fetch 
     // Better Auth rejects sign-out without a JSON body.
     signOut: () => request<unknown>("POST", "/api/auth/sign-out", {}),
     listTags: () => request<{ tags: Tag[] }>("GET", "/api/tags").then((r) => r.tags),
-    createBookmark: (url: string) => request<Bookmark>("POST", "/api/bookmarks", { url }),
+    createBookmark: (url: string, visibility: Visibility = "public") =>
+      request<Bookmark>("POST", "/api/bookmarks", { url, visibility }),
     setTags: (id: string, tags: string[]) =>
       request<unknown>("PUT", `/api/bookmarks/${encodeURIComponent(id)}/tags`, { tags }),
     deleteBookmark: (id: string) =>
