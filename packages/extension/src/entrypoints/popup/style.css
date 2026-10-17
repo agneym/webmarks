@@ -32,7 +32,8 @@ header {
   display: flex;
   gap: 6px;
 }
-.row > input {
+.row > input,
+select {
   flex: 1;
 }
 .muted {
@@ -117,20 +118,4 @@ button:disabled {
 .chip button {
   border: none;
   padding: 0 4px;
-}
-.suggestions {
-  display: grid;
-}
-.option {
-  display: flex;
-  justify-content: space-between;
-  border: none;
-  border-radius: 4px;
-  text-align: left;
-}
-.option.active {
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
-}
-.option.create {
-  color: var(--accent);
 }

@@ -1,8 +1,7 @@
 {
-  "extends": "../../tsconfig.json",
+  "extends": "./.wxt/tsconfig.json",
   "compilerOptions": {
-    "lib": ["ESNext", "DOM", "DOM.Iterable"],
     "types": ["chrome"]
   },
-  "include": ["src", "tests", "build.mjs"]
+  "include": ["src", "tests", "wxt.config.ts", ".wxt/wxt.d.ts"]
 }
