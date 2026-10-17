@@ -53,6 +53,10 @@
       },
     ],
   },
+  // Marks bookmarks stuck on "fetching" as failed so they can be refetched.
+  "triggers": {
+    "crons": ["*/15 * * * *"],
+  },
   // Workers AI: writes the image subject (Gemma 4) and draws the image (FLUX.2 klein).
   "ai": {
     "binding": "AI",

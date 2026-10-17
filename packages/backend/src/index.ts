@@ -8,7 +8,7 @@ import tags from "./routes/tags";
 import deviceApp from "./routes/device";
 import admin from "./routes/admin";
 import images from "./routes/images";
-import { handleQueue, type QueueMessage } from "./queue-consumer";
+import { failStalePending, handleQueue, type QueueMessage } from "./queue-consumer";
 
 const app = new OpenAPIHono<{
   Bindings: CloudflareBindings;
@@ -134,5 +134,12 @@ export default {
   fetch: app.fetch,
   async queue(batch: MessageBatch<QueueMessage>, env: CloudflareBindings, _ctx: ExecutionContext) {
     await handleQueue(batch, env);
+  },
+  async scheduled(
+    _controller: ScheduledController,
+    env: CloudflareBindings,
+    ctx: ExecutionContext,
+  ) {
+    ctx.waitUntil(failStalePending(env));
   },
 };

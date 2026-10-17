@@ -17,6 +17,27 @@ describe("fetchMetadata", () => {
     vi.restoreAllMocks();
   });
 
+  it("times out when the body stalls after the headers arrive", async () => {
+    vi.useFakeTimers();
+    try {
+      vi.spyOn(globalThis, "fetch").mockImplementationOnce(async (_url, init) => {
+        const body = new ReadableStream({
+          pull: () =>
+            new Promise((_, reject) => {
+              init?.signal?.addEventListener("abort", () => reject(init.signal?.reason));
+            }),
+        });
+        return new Response(body, { status: 200, headers: { "Content-Type": "text/html" } });
+      });
+
+      const result = fetchMetadata("https://example.com").catch((err: Error) => err);
+      await vi.advanceTimersByTimeAsync(10_000);
+      expect(await result).toMatchObject({ message: expect.stringContaining("Timeout") });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   // ── URL validation ───────────────────────────────────────────────────
 
   it("throws on invalid URL", async () => {
