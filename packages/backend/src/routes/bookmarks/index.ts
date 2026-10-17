@@ -23,6 +23,7 @@ import { listBookmarksRoute } from "./list";
 import { getBookmarkRoute } from "./get";
 import { updateBookmarkRoute } from "./update";
 import { deleteBookmarkRoute } from "./delete";
+import { refetchBookmarkRoute } from "./refetch";
 import { setBookmarkTagsRoute, getBookmarkTagsRoute } from "./tags";
 import { attachTagsToBookmarks } from "./attach-tags";
 import { deleteGeneratedImage } from "../../lib/blueprint-image";
@@ -261,6 +262,34 @@ bookmarks.openapi(updateBookmarkRoute, async (c) => {
 
   c.var.logger.info({ id, userId }, "bookmark updated");
   return c.json(withTags, 200);
+});
+
+// POST /:id/refetch — retry the metadata fetch (e.g. after it failed)
+bookmarks.openapi(refetchBookmarkRoute, async (c) => {
+  const userId = c.get("userId");
+  if (!userId) {
+    return c.json({ error: "Unauthorized" }, 401);
+  }
+
+  const { id } = c.req.valid("param");
+  const db = createDrizzle(c.env.webmarks);
+
+  const [row] = await db
+    .update(bookmark)
+    .set({ fetchStatus: "pending" })
+    .where(and(eq(bookmark.id, id), eq(bookmark.userId, userId)))
+    .returning();
+
+  if (!row) {
+    return c.json({ error: "Bookmark not found" }, 404);
+  }
+
+  await c.env.BOOKMARK_QUEUE.send({ bookmarkId: id, url: row.url });
+
+  const [withTags] = await attachTagsToBookmarks(db, [row]);
+
+  c.var.logger.info({ id, userId }, "bookmark refetch queued");
+  return c.json(withTags, 202);
 });
 
 // DELETE /:id — delete a bookmark

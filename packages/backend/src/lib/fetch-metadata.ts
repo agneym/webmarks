@@ -116,9 +116,27 @@ function firstHref<K extends string>(slots: Record<K, string | undefined>, key: 
 export async function fetchMetadata(urlString: string): Promise<BookmarkMetadata> {
   const baseUrl = validateUrl(urlString);
 
+  // One 10s budget covers the headers and the body read: a server that sends
+  // headers and then stalls must not hang the consumer.
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 10_000); // 10s timeout
+  const timeoutId = setTimeout(() => controller.abort(), 10_000);
+  try {
+    return await fetchAndParse(urlString, baseUrl, controller.signal);
+  } catch (err: any) {
+    if (err?.name === "AbortError") {
+      throw new Error(`Timeout fetching ${urlString}`, { cause: err });
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
 
+async function fetchAndParse(
+  urlString: string,
+  baseUrl: URL,
+  signal: AbortSignal,
+): Promise<BookmarkMetadata> {
   let response: Response;
   try {
     response = await fetch(baseUrl.href, {
@@ -127,16 +145,12 @@ export async function fetchMetadata(urlString: string): Promise<BookmarkMetadata
         Accept: "text/html,application/xhtml+xml",
       },
       redirect: "follow",
-      signal: controller.signal,
+      signal,
     });
   } catch (err: any) {
-    clearTimeout(timeoutId);
-    if (err?.name === "AbortError") {
-      throw new Error(`Timeout fetching ${urlString}`, { cause: err });
-    }
+    if (err?.name === "AbortError") throw err;
     throw new Error(`Network error fetching ${urlString}: ${err?.message}`, { cause: err });
   }
-  clearTimeout(timeoutId);
 
   // Validate response
   if (!response.ok) {

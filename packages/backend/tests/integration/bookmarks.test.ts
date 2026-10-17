@@ -518,3 +518,43 @@ describe("DELETE /api/bookmarks/:id", () => {
     expect(body.error).toMatch(/not found/i);
   });
 });
+
+// ──────────────────────────────────────────────
+// POST /api/bookmarks/:id/refetch
+// ──────────────────────────────────────────────
+
+const refetch = (id: string, a = app) =>
+  a.request(`/api/bookmarks/${id}/refetch`, { method: "POST" }, env as any);
+
+describe("POST /api/bookmarks/:id/refetch", () => {
+  it("resets a failed bookmark to pending and returns 202", async () => {
+    await seedAndTrack({
+      id: "bm-refetch",
+      url: "https://example.com/refetch",
+      userId: TEST_USER_ID,
+      fetchStatus: "failed",
+    });
+
+    const res = await refetch("bm-refetch");
+
+    expect(res.status).toBe(202);
+    const body: any = await res.json();
+    expect(body.fetchStatus).toBe("pending");
+  });
+
+  it("returns 404 for another user's bookmark", async () => {
+    await seedAndTrack({
+      id: "bm-refetch-other",
+      url: "https://example.com/refetch-other",
+      userId: "other-user",
+      fetchStatus: "failed",
+    });
+
+    expect((await refetch("bm-refetch-other")).status).toBe(404);
+  });
+
+  it("returns 401 when unauthenticated", async () => {
+    const res = await refetch("bm-refetch", createTestApp({ authenticated: false }));
+    expect(res.status).toBe(401);
+  });
+});

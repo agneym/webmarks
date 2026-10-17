@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeAll, afterEach } from "vitest";
 import { env } from "cloudflare:test";
-import { handleQueue, type QueueMessage } from "../../src/queue-consumer";
+import { failStalePending, handleQueue, type QueueMessage } from "../../src/queue-consumer";
 import { seedUser, seedBookmark } from "../helpers/seed";
 import { applyMigrations } from "../helpers/migrations";
 import { createFakeAi, FAKE_JPEG, imageRequestForm } from "../helpers/fake-ai";
@@ -337,5 +337,46 @@ describe("handleQueue", () => {
 
       expect(aiRun).not.toHaveBeenCalled();
     });
+  });
+});
+
+describe("failStalePending", () => {
+  const MINUTE = 60_000;
+
+  beforeAll(async () => {
+    await applyMigrations((env as any).webmarks);
+  });
+
+  afterEach(async () => {
+    await (env as any).webmarks
+      .prepare("DELETE FROM bookmark WHERE user_id = ?")
+      .bind(TEST_USER_ID)
+      .run();
+    await (env as any).webmarks.prepare("DELETE FROM user WHERE id = ?").bind(TEST_USER_ID).run();
+  });
+
+  it("marks only old pending bookmarks as failed", async () => {
+    const now = Date.now();
+    await seedUser(env as any, TEST_USER_ID, TEST_EMAIL, TEST_NAME);
+    const rows = [
+      { id: "bm-stale", fetchStatus: "pending", updatedAt: now - 45 * MINUTE },
+      { id: "bm-fresh", fetchStatus: "pending", updatedAt: now - 5 * MINUTE },
+      { id: "bm-done", fetchStatus: "success", updatedAt: now - 45 * MINUTE },
+    ];
+    // oxlint-disable no-await-in-loop — D1 seeding must run sequentially
+    for (const r of rows) {
+      await seedBookmark(env as any, {
+        ...r,
+        url: `https://example.com/${r.id}`,
+        userId: TEST_USER_ID,
+      });
+    }
+
+    const swept = await failStalePending({ ...(env as any), AI: createFakeAi().ai }, now);
+
+    expect(swept).toBe(1);
+    expect((await readBookmark("bm-stale")).fetch_status).toBe("failed");
+    expect((await readBookmark("bm-fresh")).fetch_status).toBe("pending");
+    expect((await readBookmark("bm-done")).fetch_status).toBe("success");
   });
 });
