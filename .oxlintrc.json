@@ -13,7 +13,7 @@
     "nursery": "off"
   },
   "plugins": ["oxc", "typescript", "import", "unicorn", "vitest", "eslint"],
-  "ignorePatterns": ["node_modules", "dist", ".wrangler", "**/.wrangler/**"],
+  "ignorePatterns": ["node_modules", "dist", ".output", ".wxt", ".wrangler", "**/.wrangler/**"],
   "rules": {
     "no-console": "off",
     "unicorn/filename-case": "off"
