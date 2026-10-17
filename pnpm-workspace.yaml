@@ -1,10 +1,10 @@
 packages:
   - "packages/*"
 
-# pnpm 10 skips dependency install scripts unless allowed. These download or
+# pnpm skips dependency install scripts unless allowed. These download or
 # build the platform binaries that wrangler, vitest-pool-workers and drizzle-kit
 # need (bun ran them via its default trusted-dependencies list).
-onlyBuiltDependencies:
-  - esbuild
-  - sharp
-  - workerd
+allowBuilds:
+  esbuild: true
+  sharp: true
+  workerd: true
