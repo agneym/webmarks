@@ -37,8 +37,8 @@
   }
 
   $effect(() => {
-    const onChange = (_changes: unknown, area: string) => {
-      if (area === "local") void load();
+    const onChange = (changes: Record<string, unknown>, area: string) => {
+      if (area === "local" && ["baseUrl", "session", "login"].some((k) => k in changes)) void load();
     };
     chrome.storage.onChanged.addListener(onChange);
     void load();

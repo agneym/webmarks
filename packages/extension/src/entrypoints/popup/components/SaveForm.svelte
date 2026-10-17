@@ -39,13 +39,13 @@
     saving = true;
     status = { kind: "muted", text: "Saving…" };
     try {
-      const bookmark = await api.createBookmark(url!, visibility);
-      // Remember it before tagging so Undo still works if tagging fails.
-      savedId = bookmark.id;
-      if (selected.length) await api.setTags(bookmark.id, selected);
+      // Remember the bookmark before tagging so Undo still works if tagging
+      // fails, and so a retry only repeats the tagging.
+      savedId ??= (await api.createBookmark(url!, visibility)).id;
+      if (selected.length) await api.setTags(savedId, selected);
       status = { kind: "success", text: "Saved." };
     } catch (err) {
-      if (!savedId) saving = false;
+      saving = false;
       status = {
         kind: "error",
         text:
