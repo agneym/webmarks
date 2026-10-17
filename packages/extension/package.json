@@ -14,6 +14,7 @@
   "devDependencies": {
     "@tsconfig/svelte": "^5.0.8",
     "@types/chrome": "^0.1.43",
+    "@wxt-dev/auto-icons": "^1.1.2",
     "@wxt-dev/module-svelte": "^2.0.5",
     "esbuild": "^0.28.1",
     "svelte": "^5.57.2",
