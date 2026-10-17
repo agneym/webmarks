@@ -3,7 +3,7 @@ import { defineConfig } from "wxt";
 export default defineConfig({
   srcDir: "src",
   modules: ["@wxt-dev/module-svelte", "@wxt-dev/auto-icons"],
-  autoIcons: { baseIconPath: "assets/icon.svg" },
+  autoIcons: { baseIconPath: "assets/icon.png" },
   manifest: {
     name: "Webmarks",
     description: "Save the current tab to webmarks.",
