@@ -34,11 +34,16 @@ export function cleanUrl(input: string): string {
   } catch {
     return input;
   }
-  for (const key of [...parsed.searchParams.keys()]) {
+  const kept = new URLSearchParams();
+  let removed = false;
+  for (const [key, value] of parsed.searchParams) {
     const lower = key.toLowerCase();
     if (TRACKING_PARAMS.has(lower) || TRACKING_PREFIXES.some((p) => lower.startsWith(p))) {
-      parsed.searchParams.delete(key);
+      removed = true;
+    } else {
+      kept.append(key, value);
     }
   }
+  if (removed) parsed.search = kept.toString();
   return parsed.toString();
 }
