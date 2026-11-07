@@ -8,12 +8,13 @@
     "build": "wxt build",
     "zip": "wxt zip",
     "postinstall": "wxt prepare",
-    "type:check": "wxt prepare && svelte-check --tsconfig ./tsconfig.json",
+    "type:check": "wxt prepare && svelte-check --tsgo --tsconfig ./tsconfig.json",
     "test": "vitest run"
   },
   "devDependencies": {
     "@tsconfig/svelte": "^5.0.8",
     "@types/chrome": "^0.1.43",
+    "@typescript/native": "npm:typescript@^7.0.2",
     "@wxt-dev/auto-icons": "^1.1.2",
     "@wxt-dev/module-svelte": "^2.0.5",
     "esbuild": "^0.28.2",
