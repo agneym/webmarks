@@ -28,7 +28,6 @@ Requires [mise](https://mise.jdx.dev), which installs pnpm, hk and Node 24 (wran
 ```sh
 mise install
 pnpm install
-hk install                                   # optional: oxfmt + oxlint pre-commit hook
 
 cd packages/backend
 cp .dev.vars.example .dev.vars               # fill in secrets, set OWNER_EMAIL
