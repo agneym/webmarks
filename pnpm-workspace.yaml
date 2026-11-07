@@ -2,7 +2,7 @@ packages:
   - "packages/*"
 
 # pnpm skips dependency install scripts unless allowed. These download or
-# build the platform binaries that wrangler, vitest-pool-workers and drizzle-kit
+# build the platform binaries that wrangler, vitest-plugin and drizzle-kit
 # need (bun ran them via its default trusted-dependencies list).
 allowBuilds:
   esbuild: true
