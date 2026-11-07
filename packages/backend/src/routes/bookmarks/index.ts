@@ -12,6 +12,7 @@ import {
   type CursorPayload,
   type SortOrder,
 } from "../../lib/cursor";
+import { cleanUrl } from "../../lib/clean-url";
 import { createDrizzle } from "../../db";
 import { bookmark } from "../../db/schema";
 import { tag, bookmarkTag } from "../../db/schema";
@@ -57,7 +58,8 @@ bookmarks.openapi(createBookmarkRoute, async (c) => {
     return c.json({ error: "Unauthorized" }, 401);
   }
 
-  const { url, visibility } = c.req.valid("json");
+  const { url: rawUrl, visibility } = c.req.valid("json");
+  const url = cleanUrl(rawUrl);
   const id = uuidv7();
   const db = createDrizzle(c.env.webmarks);
 
