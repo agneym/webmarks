@@ -44,6 +44,7 @@ export function cleanUrl(input: string): string {
       kept.append(key, value);
     }
   }
-  if (removed) parsed.search = kept.toString();
+  if (!removed) return input;
+  parsed.search = kept.toString();
   return parsed.toString();
 }

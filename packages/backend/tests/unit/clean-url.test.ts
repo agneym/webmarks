@@ -12,6 +12,9 @@ describe("cleanUrl", () => {
       "https://youtube.com/watch?v=abc",
     );
   });
+  it("does not normalize urls without tracking params", () => {
+    expect(cleanUrl("https://example.com")).toBe("https://example.com");
+  });
   it("leaves clean urls alone", () => {
     expect(cleanUrl("https://a.com/p?id=3#frag")).toBe("https://a.com/p?id=3#frag");
   });
